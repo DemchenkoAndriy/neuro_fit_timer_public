@@ -37,6 +37,7 @@ function seedSessions(workouts: Workout[], programStart: Date, today: Date): Ses
         workoutId: workout.id,
         startedAt,
         finishedAt: startedAt + workout.durationMin * 60_000,
+        pausedSec: 0,
         workSec: Math.round(workSec),
         restSec: Math.round(restSec),
         warmupSec: 300,

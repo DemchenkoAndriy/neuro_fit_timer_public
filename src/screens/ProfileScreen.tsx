@@ -15,7 +15,7 @@ import {
   trainingProgress,
   workoutById,
 } from '../state/selectors';
-import { formatDuration } from '../utils/date';
+import { formatDuration, formatTime } from '../utils/date';
 import { SIGNAL_TONE_LABEL, useAudioCue } from '../hooks/useAudioCue';
 import type { SignalTone, SoundMode } from '../types';
 
@@ -253,6 +253,11 @@ export function ProfileScreen() {
                     </p>
                     <p className="history-item__meta dim">
                       {new Date(session.startedAt).toLocaleDateString('uk-UA')} ·{' '}
+                      <span className="num">
+                        {formatTime(session.startedAt)}–{formatTime(session.finishedAt)}
+                      </span>
+                    </p>
+                    <p className="history-item__meta dim">
                       {formatDuration(session.totalSec)} · {session.completedSets}/
                       {session.plannedSets} підходів
                     </p>

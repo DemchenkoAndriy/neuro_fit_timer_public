@@ -382,6 +382,7 @@ export function useWorkoutRunner(workout: Workout) {
       workoutId: workout.id,
       startedAt: run.startedAt,
       finishedAt,
+      pausedSec: Math.round(run.pausedMs / 1000),
       workSec: Math.round(run.workSec),
       restSec: Math.round(run.restSec),
       warmupSec: Math.round(run.warmupSec),

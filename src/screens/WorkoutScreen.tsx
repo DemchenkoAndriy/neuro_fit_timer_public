@@ -6,7 +6,7 @@ import { Icon } from '../components/Icon';
 import { useAppState } from '../state/store';
 import { dateForWorkout, sessionForWorkout, sessionVolume, workoutById } from '../state/selectors';
 import { plannedSets } from '../data/program';
-import { formatDuration, formatLongDate } from '../utils/date';
+import { formatDuration, formatLongDate, formatTime } from '../utils/date';
 
 export function WorkoutScreen() {
   const { workoutId } = useParams();
@@ -54,8 +54,12 @@ export function WorkoutScreen() {
             <div>
               <p className="done-banner__title">Виконано</p>
               <p className="done-banner__meta muted">
-                {formatDuration(session.totalSec)} · {session.completedSets}/{session.plannedSets}{' '}
-                підходів · {Math.round(sessionVolume(session)).toLocaleString('uk-UA')} кг обсягу
+                <span className="num">
+                  {formatTime(session.startedAt)}–{formatTime(session.finishedAt)}
+                </span>{' '}
+                · {formatDuration(session.totalSec)} · {session.completedSets}/
+                {session.plannedSets} підходів ·{' '}
+                {Math.round(sessionVolume(session)).toLocaleString('uk-UA')} кг обсягу
               </p>
             </div>
           </div>

@@ -79,6 +79,14 @@ export function formatDayMonth(date: Date): string {
   return `${date.getDate()} ${MONTHS_GENITIVE[date.getMonth()]}`;
 }
 
+/** Epoch ms → "18:32" — the wall-clock time a workout started or ended. */
+export function formatTime(epochMs: number): string {
+  const date = new Date(epochMs);
+  const hours = `${date.getHours()}`.padStart(2, '0');
+  const minutes = `${date.getMinutes()}`.padStart(2, '0');
+  return `${hours}:${minutes}`;
+}
+
 /** Seconds → "05:30" (or "1:05:30" past an hour). */
 export function formatClock(totalSeconds: number): string {
   const s = Math.max(0, Math.round(totalSeconds));

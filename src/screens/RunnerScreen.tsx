@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Button } from '../components/Button';
 import { Icon } from '../components/Icon';
 import { ProgressBar } from '../components/ProgressBar';
 import { RingTimer } from '../components/RingTimer';
 import { Stepper } from '../components/Stepper';
+import { TempoGauge } from '../components/TempoGauge';
 import { useAppState, useDispatch } from '../state/store';
 import { workoutById } from '../state/selectors';
 import { useWorkoutRunner } from '../hooks/useWorkoutRunner';
@@ -12,7 +13,7 @@ import { useAudioCue } from '../hooks/useAudioCue';
 import { NUMBER_WORDS, useSpeech } from '../hooks/useSpeech';
 import { useVibrate } from '../hooks/useVibrate';
 import { useWakeLock } from '../hooks/useWakeLock';
-import { formatClock, formatDuration } from '../utils/date';
+import { formatClock, formatDuration, formatTime } from '../utils/date';
 import type { RunPhase, Session, SoundMode, Workout } from '../types';
 
 const PHASE_COLOR: Record<RunPhase, string> = {
@@ -148,19 +149,13 @@ function Runner({ workout }: { workout: Workout }) {
   }, [run, phase, view.paused, view.phaseRemainingSec, soundMode, soundOn, cue, speak, vibrate]);
 
   // Tempo metronome: a click every eccentric second, a higher tone on the lift.
-  const beatRef = useRef<number | null>(null);
-  useEffect(() => {
-    if (!run || view.paused || phase !== 'work' || !tempo.enabled) {
-      beatRef.current = null;
-      return;
-    }
-    const beat = Math.floor(view.phaseElapsedSec);
-    if (beatRef.current === beat) return;
-    beatRef.current = beat;
-    const isDown = beat % (tempo.downSec + tempo.upSec) < tempo.downSec;
-    if (soundOn) cue(isDown ? 'tempoDown' : 'tempoUp');
-    if (!isDown) vibrate(35);
-  }, [run, phase, view.paused, view.phaseElapsedSec, tempo, soundOn, cue, vibrate]);
+  const onTempoBeat = useCallback(
+    (isDown: boolean) => {
+      if (soundOn) cue(isDown ? 'tempoDown' : 'tempoUp');
+      if (!isDown) vibrate(35);
+    },
+    [soundOn, cue, vibrate],
+  );
 
   // One cue per phase change: the start of a set, and the finish.
   const prevPhaseRef = useRef<RunPhase | null>(null);
@@ -194,25 +189,6 @@ function Runner({ workout }: { workout: Workout }) {
       ),
     [run],
   );
-
-  // Where we are inside the current 4/1 cycle. The column fills while the
-  // weight goes down and empties on the way up, so it reads like the lift.
-  const tempoState = useMemo(() => {
-    const cycle = tempo.downSec + tempo.upSec;
-    const position = view.phaseElapsedSec % cycle;
-    const isDown = position < tempo.downSec;
-    const ratio = isDown
-      ? position / tempo.downSec
-      : (position - tempo.downSec) / tempo.upSec;
-    return {
-      isDown,
-      count: isDown
-        ? Math.ceil(tempo.downSec - position)
-        : Math.ceil(tempo.downSec + tempo.upSec - position),
-      fill: isDown ? ratio : 1 - ratio,
-      reps: Math.floor(view.phaseElapsedSec / cycle),
-    };
-  }, [view.phaseElapsedSec, tempo]);
 
   const cycleSound = () => {
     const next = SOUND_ORDER[(SOUND_ORDER.indexOf(soundMode) + 1) % SOUND_ORDER.length];
@@ -270,28 +246,46 @@ function Runner({ workout }: { workout: Workout }) {
             №{workout.index} · {workout.focus}
           </p>
 
+          {/* Wall-clock marks — fixed regardless of how long the pauses were. */}
+          <p className="summary-clock num">
+            <span className="summary-clock__mark">{formatTime(run.startedAt)}</span>
+            <span className="summary-clock__arrow">→</span>
+            <span className="summary-clock__mark">
+              {formatTime(result?.finishedAt ?? Date.now())}
+            </span>
+          </p>
+
           <div className="summary-grid">
             <SummaryStat
               value={formatDuration(result?.totalSec ?? view.totalElapsedSec)}
-              label="загалом"
+              label="чистий час"
+            />
+            <SummaryStat
+              value={formatDuration(
+                ((result?.finishedAt ?? Date.now()) - run.startedAt) / 1000,
+              )}
+              label="від початку до кінця"
             />
             <SummaryStat value={`${view.completedSets}/${view.plannedSets}`} label="підходів" />
+            <SummaryStat
+              value={`${Math.round(volume).toLocaleString('uk-UA')} кг`}
+              label="загальний обсяг"
+            />
             <SummaryStat value={formatDuration(run.workSec)} label="під навантаженням" />
+            <SummaryStat value={formatDuration(run.restSec)} label="відпочинок" />
             <SummaryStat value={formatDuration(run.warmupSec)} label="розминка" />
             <SummaryStat
               value={run.cooldownSec > 0 ? formatDuration(run.cooldownSec) : '—'}
               label="заминка"
             />
-            <SummaryStat value={formatDuration(run.restSec)} label="відпочинок" />
-            <SummaryStat
-              value={`${Math.round(volume).toLocaleString('uk-UA')} кг`}
-              label="загальний обсяг"
-            />
+            {run.pausedMs > 1000 && (
+              <SummaryStat value={formatDuration(run.pausedMs / 1000)} label="на паузі" />
+            )}
           </div>
 
           <h3 className="summary-heading">Деталізація</h3>
           <ul className="breakdown">
-            {run.warmupSec > 0 && (
+            {run.warmupSec >= 1 && (
               <li className="breakdown__item breakdown__item--single">
                 <span className="breakdown__name">Розминка на початку</span>
                 <span className="breakdown__total num breakdown__total--warmup">
@@ -345,7 +339,7 @@ function Runner({ workout }: { workout: Workout }) {
             {run.logs.length === 0 && (
               <li className="empty-note">Жодного підходу не зафіксовано.</li>
             )}
-            {run.cooldownSec > 0 && (
+            {run.cooldownSec >= 1 && (
               <li className="breakdown__item breakdown__item--single">
                 <span className="breakdown__name">Заминка в кінці</span>
                 <span className="breakdown__total num breakdown__total--warmup">
@@ -462,14 +456,13 @@ function Runner({ workout }: { workout: Workout }) {
         </RingTimer>
         <div className="runner__ring-side">
           {phase === 'work' && tempo.enabled && (
-            <div className={`tempo${tempoState.isDown ? '' : ' tempo--up'}`}>
-              <span className="tempo__count num">{tempoState.count}</span>
-              <div className="tempo__track">
-                <div className="tempo__fill" style={{ height: `${tempoState.fill * 100}%` }} />
-              </div>
-              <span className="tempo__label">{tempoState.isDown ? 'опускай' : 'підйом'}</span>
-              <span className="tempo__reps num">{tempoState.reps} повт.</span>
-            </div>
+            <TempoGauge
+              startedAt={run.phaseStartedAt}
+              pausedAt={run.pausedAt}
+              downSec={tempo.downSec}
+              upSec={tempo.upSec}
+              onBeat={onTempoBeat}
+            />
           )}
         </div>
       </div>
@@ -506,7 +499,7 @@ function Runner({ workout }: { workout: Workout }) {
       {phase === 'prep' && (
         <div className="runner__prep-settings">
           <p className="runner__prep-next dim">
-            Тренування №{workout.index} · {workout.focus} · {workout.exercises.length} вправ
+            Початок о {formatTime(run.startedAt)} · {workout.exercises.length} вправ
           </p>
           <Stepper
             label="Відпочинок між підходами"

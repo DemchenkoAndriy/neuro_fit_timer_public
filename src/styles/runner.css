@@ -595,3 +595,25 @@
     font-size: 12px;
   }
 }
+
+.summary-clock {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  padding: 5px 14px;
+  border-radius: var(--radius-pill);
+  background: var(--bg-elevated);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.summary-clock__arrow {
+  color: var(--text-dim);
+  font-weight: 400;
+}
+
+/* The gauge is driven frame by frame, so no CSS transition to fight it. */
+.tempo__fill {
+  transition: none;
+}

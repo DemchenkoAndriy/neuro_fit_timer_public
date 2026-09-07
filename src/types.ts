@@ -57,9 +57,12 @@ export interface ExerciseLog {
 export interface Session {
   id: string;
   workoutId: string;
-  /** Epoch ms. */
+  /** Wall-clock start of the workout, epoch ms. */
   startedAt: number;
+  /** Wall-clock end of the workout, epoch ms. */
   finishedAt: number;
+  /** Time spent on pause between those two marks. */
+  pausedSec: number;
   workSec: number;
   restSec: number;
   /** Warm-up at the start of the workout. */
