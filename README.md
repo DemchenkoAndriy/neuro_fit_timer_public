@@ -56,6 +56,19 @@ npm run preview  # перегляд зібраного
 
 Потрібен Node.js 20+.
 
+## Публікація
+
+Репозиторій налаштований на GitHub Pages через Actions
+(`.github/workflows/deploy.yml`): кожен пуш у гілку збирає `dist/` і публікує його.
+
+Одноразове увімкнення: **Settings → Pages → Build and deployment → Source: GitHub Actions**.
+Після цього сторінка живе за адресою
+`https://demchenkoandriy.github.io/neuro_fit_timer_public/`.
+
+Збірка використовує відносний `base: './'` і hash-роутинг, тому працює з підкаталогу
+без додаткових налаштувань — і так само на Vercel, Netlify чи будь-якій статиці
+(команда збірки `npm run build`, каталог `dist`).
+
 ## Стек
 
 - **React 19 + TypeScript + Vite** — швидкий dev-цикл, статична збірка без бекенду;
