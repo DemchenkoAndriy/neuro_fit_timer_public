@@ -1,0 +1,47 @@
+/*
+ * Design tokens.
+ * Palette is carried over 1:1 from the Flutter mockup in neuro_fit_timer
+ * so the web build stays visually identical to the approved screen.
+ */
+:root {
+  --bg: #1e2a3a;
+  --bg-elevated: #253447;
+  --bg-elevated-2: #2c3e55;
+  --surface-line: #33465f;
+
+  --accent: #ff6b35;
+  --accent-soft: rgba(255, 107, 53, 0.16);
+  --success: #2ecc9a;
+  --success-soft: rgba(46, 204, 154, 0.16);
+  --info: #4aa8ff;
+  --danger: #ef5350;
+
+  --text: #ffffff;
+  --text-muted: rgba(255, 255, 255, 0.7);
+  --text-dim: rgba(255, 255, 255, 0.54);
+  --text-faint: rgba(255, 255, 255, 0.34);
+
+  --radius-sm: 8px;
+  --radius: 12px;
+  --radius-lg: 18px;
+  --radius-pill: 999px;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+
+  --font: 'Inter', 'Segoe UI', Roboto, -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial,
+    sans-serif;
+  --font-num: 'SF Mono', 'JetBrains Mono', 'Roboto Mono', ui-monospace, monospace;
+
+  --shadow-card: 0 6px 18px rgba(0, 0, 0, 0.22);
+  --shadow-float: 0 10px 30px rgba(0, 0, 0, 0.38);
+
+  --app-max-width: 480px;
+  --nav-height: 62px;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-top: env(safe-area-inset-top, 0px);
+}

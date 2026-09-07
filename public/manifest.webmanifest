@@ -1,0 +1,14 @@
+{
+  "name": "NeuroFit Timer",
+  "short_name": "NeuroFit",
+  "description": "Трекер тренувань, харчування та цілей",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#1E2A3A",
+  "theme_color": "#1E2A3A",
+  "icons": [
+    { "src": "./favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

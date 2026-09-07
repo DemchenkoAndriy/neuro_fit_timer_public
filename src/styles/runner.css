@@ -1,0 +1,301 @@
+/* ---------- workout runner ---------- */
+
+.runner {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  padding: calc(var(--safe-top) + var(--space-2)) var(--space-4)
+    calc(var(--safe-bottom) + var(--space-4));
+  min-height: 100%;
+  background: var(--bg);
+  transition: background 0.4s ease;
+}
+
+.runner--rest {
+  background: linear-gradient(180deg, rgba(74, 168, 255, 0.12), transparent 55%), var(--bg);
+}
+
+.runner--work {
+  background: linear-gradient(180deg, rgba(46, 204, 154, 0.12), transparent 55%), var(--bg);
+}
+
+.runner--prep {
+  background: linear-gradient(180deg, rgba(255, 107, 53, 0.14), transparent 55%), var(--bg);
+}
+
+.runner--centered {
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: var(--space-3);
+  color: var(--accent);
+}
+
+.runner__conflict-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.runner__conflict-text {
+  font-size: 13px;
+  max-width: 280px;
+}
+
+.runner__conflict-actions {
+  width: 100%;
+  max-width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.runner__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.runner__top-center {
+  text-align: center;
+}
+
+.runner__top-title {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.runner__top-time {
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+.runner__progress {
+  margin-top: var(--space-3);
+}
+
+.runner__progress-label {
+  font-size: 11px;
+  text-align: right;
+  margin-top: 5px;
+}
+
+.runner__ring {
+  margin-top: auto;
+  padding-top: var(--space-4);
+}
+
+.runner__phase {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.runner__time {
+  font-size: 52px;
+  font-weight: 700;
+  line-height: 1.05;
+  margin-top: var(--space-2);
+  letter-spacing: -0.02em;
+}
+
+.runner__set {
+  font-size: 12px;
+  margin-top: var(--space-2);
+}
+
+.runner__exercise {
+  text-align: center;
+  margin-top: var(--space-4);
+}
+
+.runner__exercise-kicker {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.runner__exercise-name {
+  font-size: 19px;
+  font-weight: 700;
+  margin-top: 4px;
+}
+
+.runner__exercise p {
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+.runner__inputs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+
+.runner__actions {
+  margin-top: auto;
+  padding-top: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.runner__actions-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+}
+
+.runner__actions-row .btn {
+  width: 100%;
+  height: 42px;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 0 var(--space-3);
+}
+
+/* ---------- summary ---------- */
+
+.runner__summary {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding-top: var(--space-5);
+}
+
+.runner__medal {
+  width: 72px;
+  height: 72px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-pill);
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.runner__summary-title {
+  font-size: 21px;
+  font-weight: 700;
+  margin-top: var(--space-3);
+}
+
+.summary-grid {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+  margin-top: var(--space-5);
+}
+
+.summary-stat {
+  background: var(--bg-elevated);
+  border-radius: var(--radius);
+  padding: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.summary-stat__value {
+  font-size: 19px;
+  font-weight: 700;
+}
+
+.summary-stat__label {
+  font-size: 11px;
+}
+
+.summary-list {
+  width: 100%;
+  margin-top: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  text-align: left;
+}
+
+.summary-item {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  font-size: 13px;
+}
+
+.summary-item__name {
+  flex: 1;
+  min-width: 0;
+}
+
+.summary-item__sets {
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.runner__summary-note {
+  font-size: 12px;
+  margin-top: var(--space-3);
+}
+
+.runner__summary-actions {
+  width: 100%;
+  margin-top: auto;
+  padding-top: var(--space-5);
+}
+
+/* ---------- confirm sheet ---------- */
+
+.sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 16, 24, 0.72);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 40;
+  animation: fade-in 0.15s ease;
+}
+
+.sheet {
+  width: 100%;
+  max-width: var(--app-max-width);
+  background: var(--bg-elevated);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  padding: var(--space-5) var(--space-4) calc(var(--safe-bottom) + var(--space-5));
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  animation: slide-up 0.2s ease;
+}
+
+.sheet__title {
+  font-size: 18px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.sheet__text {
+  font-size: 13px;
+  text-align: center;
+  margin-bottom: var(--space-2);
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes slide-up {
+  from {
+    transform: translateY(16px);
+  }
+}

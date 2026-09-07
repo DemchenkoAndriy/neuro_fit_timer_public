@@ -1,0 +1,181 @@
+@import './tokens.css';
+@import './components.css';
+@import './screens.css';
+@import './runner.css';
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 15px;
+  line-height: 1.35;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  border: none;
+  background: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+input,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+h1,
+h2,
+h3,
+h4,
+p {
+  margin: 0;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ---------- app frame: phone-width column, centred on desktop ---------- */
+
+.app-frame {
+  width: 100%;
+  max-width: var(--app-max-width);
+  margin: 0 auto;
+  /* A bounded height makes .screen-body the scroller and pins the tab bar. */
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  background: var(--bg);
+}
+
+@media (min-width: 640px) {
+  body {
+    background: #16202c;
+  }
+  .app-frame {
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.05), var(--shadow-float);
+  }
+}
+
+.screen {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.screen-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 var(--space-4) var(--space-6);
+  -webkit-overflow-scrolling: touch;
+}
+
+.screen-body--flush {
+  padding-bottom: var(--space-6);
+}
+
+/* ---------- shared atoms ---------- */
+
+.card {
+  background: var(--bg-elevated);
+  border-radius: var(--radius);
+  padding: var(--space-3);
+}
+
+.card-title {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+  margin-bottom: var(--space-2);
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+}
+
+.row-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.muted {
+  color: var(--text-muted);
+}
+
+.dim {
+  color: var(--text-dim);
+}
+
+.num {
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+}
+
+.underline-accent {
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+
+.section-label {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.empty-note {
+  color: var(--text-dim);
+  font-size: 13px;
+  text-align: center;
+  padding: var(--space-5) var(--space-3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
