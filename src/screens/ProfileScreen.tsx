@@ -16,6 +16,13 @@ import {
   workoutById,
 } from '../state/selectors';
 import { formatDuration } from '../utils/date';
+import type { SoundMode } from '../types';
+
+const SOUND_OPTIONS: { mode: SoundMode; title: string; hint: string }[] = [
+  { mode: 'beeps', title: 'Варіант 1', hint: 'сигнал за 10 с, 5 с і в кінці' },
+  { mode: 'countdown', title: 'Варіант 2', hint: 'відлік вголос від 10 до 0' },
+  { mode: 'off', title: 'Без звуку', hint: 'тиша' },
+];
 
 export function ProfileScreen() {
   const state = useAppState();
@@ -23,6 +30,7 @@ export function ProfileScreen() {
   const [confirmReset, setConfirmReset] = useState(false);
 
   const training = trainingProgress(state);
+  const { tempo } = state.settings;
   const history = [...state.sessions].sort((a, b) => b.startedAt - a.startedAt).slice(0, 12);
 
   return (
@@ -115,12 +123,28 @@ export function ProfileScreen() {
         </Card>
 
         <Card title="Тренування" className="section-gap stack-gap">
-          <Toggle
-            label="Звукові сигнали"
-            hint="Біп на останніх секундах відпочинку"
-            value={state.settings.sound}
-            onChange={(sound) => dispatch({ type: 'settings/update', patch: { sound } })}
-          />
+          <div className="sound-choice">
+            <span className="toggle__label">Звук відліку</span>
+            <div className="sound-choice__options" role="radiogroup" aria-label="Звук відліку">
+              {SOUND_OPTIONS.map((option) => (
+                <button
+                  key={option.mode}
+                  type="button"
+                  role="radio"
+                  aria-checked={state.settings.soundMode === option.mode}
+                  className={`sound-choice__btn${
+                    state.settings.soundMode === option.mode ? ' sound-choice__btn--active' : ''
+                  }`}
+                  onClick={() =>
+                    dispatch({ type: 'settings/update', patch: { soundMode: option.mode } })
+                  }
+                >
+                  <span className="sound-choice__title">{option.title}</span>
+                  <span className="sound-choice__hint">{option.hint}</span>
+                </button>
+              ))}
+            </div>
+          </div>
           <Toggle
             label="Вібрація"
             hint="Підказка при зміні фази"
@@ -148,6 +172,41 @@ export function ProfileScreen() {
               max={60}
               suffix="с"
               onChange={(prepSec) => dispatch({ type: 'settings/update', patch: { prepSec } })}
+            />
+          </div>
+        </Card>
+
+        <Card title="Темп повторення" className="section-gap stack-gap">
+          <Toggle
+            label="Віджет темпу"
+            hint={`${tempo.downSec} с опускання / ${tempo.upSec} с підйом, з метрономом`}
+            value={tempo.enabled}
+            onChange={(enabled) =>
+              dispatch({ type: 'settings/update', patch: { tempo: { ...tempo, enabled } } })
+            }
+          />
+          <div className="stepper-row">
+            <Stepper
+              label="Опускання"
+              value={tempo.downSec}
+              step={1}
+              min={1}
+              max={10}
+              suffix="с"
+              onChange={(downSec) =>
+                dispatch({ type: 'settings/update', patch: { tempo: { ...tempo, downSec } } })
+              }
+            />
+            <Stepper
+              label="Підйом"
+              value={tempo.upSec}
+              step={1}
+              min={1}
+              max={10}
+              suffix="с"
+              onChange={(upSec) =>
+                dispatch({ type: 'settings/update', patch: { tempo: { ...tempo, upSec } } })
+              }
             />
           </div>
         </Card>

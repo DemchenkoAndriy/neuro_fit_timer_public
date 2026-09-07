@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
-import type { ExerciseLog, RunState, Session, Workout } from '../types';
+import type { Exercise, ExerciseLog, RunState, Session, Workout } from '../types';
 import { useAppState, useDispatch } from '../state/store';
 import { plannedSets } from '../data/program';
 import { useNow } from './useNow';
@@ -12,14 +12,23 @@ export interface RunnerView {
   setIndex: number;
   /** Seconds elapsed inside the current phase. */
   phaseElapsedSec: number;
-  /** Seconds left in a countdown phase; 0 for the count-up work phase. */
+  /** Seconds left in a countdown phase; 0 for the phases that count up. */
   phaseRemainingSec: number;
-  /** 0..1 for the ring; work counts up against the rest length as a soft target. */
+  /** 0..1 for the ring; countdowns drain, open-ended phases fill. */
   phaseRatio: number;
   paused: boolean;
+  /** Wall-clock time since the very start of the workout, minus pauses. */
   totalElapsedSec: number;
   completedSets: number;
   plannedSets: number;
+  /** Rest length in force for the next break. */
+  restSec: number;
+}
+
+/** Rest between sets: the value chosen at the start wins over the plan. */
+export function restLengthFor(run: RunState | null, exercise?: Exercise): number {
+  if (run?.restOverrideSec != null) return run.restOverrideSec;
+  return exercise?.restSec ?? 60;
 }
 
 function newRun(workout: Workout, prepSec: number, now: number): RunState {
@@ -28,12 +37,16 @@ function newRun(workout: Workout, prepSec: number, now: number): RunState {
     startedAt: now,
     exerciseIndex: 0,
     setIndex: 0,
-    phase: prepSec > 0 ? 'prep' : 'work',
+    // Every exercise opens with an open-ended warm-up.
+    phase: prepSec > 0 ? 'prep' : 'warmup',
     phaseStartedAt: now,
     phaseDurationSec: prepSec > 0 ? prepSec : 0,
     pausedAt: null,
+    pausedMs: 0,
     workSec: 0,
     restSec: 0,
+    warmupSec: 0,
+    restOverrideSec: null,
     logs: [],
     lastWeight: {},
   };
@@ -94,6 +107,7 @@ export function useWorkoutRunner(workout: Workout) {
         totalElapsedSec: 0,
         completedSets: 0,
         plannedSets: total,
+        restSec: restLengthFor(null, workout.exercises[0]),
       };
     }
 
@@ -105,11 +119,9 @@ export function useWorkoutRunner(workout: Workout) {
       run.phaseDurationSec > 0
         ? // Countdowns drain: the arc shows what is left.
           Math.max(0, phaseRemainingSec / run.phaseDurationSec)
-        : // The work phase has no fixed length — fill the ring over the rest
-          // interval so there is still a sense of pace.
-          Math.min(1, phaseElapsedSec / Math.max(30, exercise?.restSec ?? 60));
-
-    const live = run.phase === 'done' ? 0 : phaseElapsedSec;
+        : // Open-ended phases have no target — fill over the rest interval so
+          // there is still a sense of pace.
+          Math.min(1, phaseElapsedSec / Math.max(30, restLengthFor(run, exercise)));
 
     return {
       run,
@@ -120,18 +132,38 @@ export function useWorkoutRunner(workout: Workout) {
       phaseRemainingSec,
       phaseRatio,
       paused: run.pausedAt != null,
-      totalElapsedSec: run.workSec + run.restSec + live,
+      // Counts from the very first second of the workout, pauses excluded.
+      totalElapsedSec: Math.max(0, (reference - run.startedAt - run.pausedMs) / 1000),
       completedSets: countLoggedSets(run.logs),
       plannedSets: total,
+      restSec: restLengthFor(run, exercise),
     };
   }, [run, conflict, now, workout, exercise]);
 
-  /** Log the finished set and move on to rest, the next exercise, or the summary. */
+  /** Seconds spent in the current phase, ignoring time spent paused. */
+  const phaseElapsed = useCallback(
+    (at: number) => (run ? Math.max(0, ((run.pausedAt ?? at) - run.phaseStartedAt) / 1000) : 0),
+    [run],
+  );
+
+  /** Add the finished phase to its bucket. */
+  const bucketFor = useCallback(
+    (at: number): Partial<RunState> => {
+      if (!run) return {};
+      const elapsed = phaseElapsed(at);
+      if (run.phase === 'work') return { workSec: run.workSec + elapsed };
+      if (run.phase === 'rest') return { restSec: run.restSec + elapsed };
+      if (run.phase === 'warmup') return { warmupSec: run.warmupSec + elapsed };
+      return {};
+    },
+    [run, phaseElapsed],
+  );
+
+  /** Log the finished set and move on to rest, the next warm-up, or the summary. */
   const completeSet = useCallback(
     (reps: number, weightKg: number) => {
       if (!run || !exercise) return;
       const at = Date.now();
-      const elapsed = (run.pausedAt ?? at) - run.phaseStartedAt;
 
       const logs = [...run.logs];
       const existing = logs.findIndex((log) => log.exerciseId === exercise.id);
@@ -146,9 +178,9 @@ export function useWorkoutRunner(workout: Workout) {
 
       const base: RunState = {
         ...run,
+        ...bucketFor(at),
         logs,
         lastWeight: { ...run.lastWeight, [exercise.id]: weightKg },
-        workSec: run.workSec + Math.max(0, elapsed / 1000),
         pausedAt: null,
       };
 
@@ -163,38 +195,55 @@ export function useWorkoutRunner(workout: Workout) {
         return;
       }
 
+      if (lastSet) {
+        // Moving on: the next exercise opens with its own warm-up.
+        dispatch({
+          type: 'run/set',
+          run: {
+            ...base,
+            exerciseIndex: run.exerciseIndex + 1,
+            setIndex: 0,
+            phase: 'warmup',
+            phaseStartedAt: at,
+            phaseDurationSec: 0,
+          },
+        });
+        return;
+      }
+
       dispatch({
         type: 'run/set',
         run: {
           ...base,
-          exerciseIndex: lastSet ? run.exerciseIndex + 1 : run.exerciseIndex,
-          setIndex: lastSet ? 0 : run.setIndex + 1,
+          setIndex: run.setIndex + 1,
           phase: 'rest',
           phaseStartedAt: at,
-          phaseDurationSec: exercise.restSec,
+          phaseDurationSec: restLengthFor(run, exercise),
         },
       });
     },
-    [dispatch, run, exercise, workout.exercises.length],
+    [dispatch, run, exercise, workout.exercises.length, bucketFor],
   );
 
-  /** Leave the rest phase and begin the next set. */
-  const beginWork = useCallback(() => {
+  /**
+   * Move to the next phase: prep → warm-up, warm-up → set, rest → set.
+   * Used by the buttons and by the countdowns when they hit zero.
+   */
+  const advance = useCallback(() => {
     if (!run) return;
     const at = Date.now();
-    const elapsed = (run.pausedAt ?? at) - run.phaseStartedAt;
     dispatch({
       type: 'run/set',
       run: {
         ...run,
-        restSec: run.phase === 'rest' ? run.restSec + Math.max(0, elapsed / 1000) : run.restSec,
-        phase: 'work',
+        ...bucketFor(at),
+        phase: run.phase === 'prep' ? 'warmup' : 'work',
         phaseStartedAt: at,
         phaseDurationSec: 0,
         pausedAt: null,
       },
     });
-  }, [dispatch, run]);
+  }, [dispatch, run, bucketFor]);
 
   const addRest = useCallback(
     (seconds: number) => {
@@ -204,23 +253,44 @@ export function useWorkoutRunner(workout: Workout) {
     [patch, run],
   );
 
-  /** Drop the remaining sets of the current exercise and jump to the next one. */
+  /** Rest length for the whole workout, picked before the first set. */
+  const setRestOverride = useCallback(
+    (seconds: number) => {
+      if (!run) return;
+      patch({
+        restOverrideSec: Math.max(10, Math.min(300, Math.round(seconds))),
+        // Adjusting the dial restarts the prep countdown, so it can't run out
+        // from under the athlete mid-tap.
+        phaseStartedAt: run.phase === 'prep' ? Date.now() : run.phaseStartedAt,
+      });
+    },
+    [patch, run],
+  );
+
+  /** Drop the remaining sets of the current exercise and warm up the next one. */
   const skipExercise = useCallback(() => {
     if (!run) return;
     const at = Date.now();
     if (run.exerciseIndex + 1 >= workout.exercises.length) {
-      patch({ phase: 'done', phaseStartedAt: at, phaseDurationSec: 0, pausedAt: null });
+      patch({
+        ...bucketFor(at),
+        phase: 'done',
+        phaseStartedAt: at,
+        phaseDurationSec: 0,
+        pausedAt: null,
+      });
       return;
     }
     patch({
+      ...bucketFor(at),
       exerciseIndex: run.exerciseIndex + 1,
       setIndex: 0,
-      phase: 'work',
+      phase: 'warmup',
       phaseStartedAt: at,
       phaseDurationSec: 0,
       pausedAt: null,
     });
-  }, [patch, run, workout.exercises.length]);
+  }, [patch, run, workout.exercises.length, bucketFor]);
 
   /** Undo the last logged set and redo it. */
   const undoSet = useCallback(() => {
@@ -251,8 +321,10 @@ export function useWorkoutRunner(workout: Workout) {
       patch({ pausedAt: Date.now() });
     } else {
       // Shift the phase start forward so the pause never counts as elapsed time.
+      const pause = Date.now() - run.pausedAt;
       patch({
-        phaseStartedAt: run.phaseStartedAt + (Date.now() - run.pausedAt),
+        phaseStartedAt: run.phaseStartedAt + pause,
+        pausedMs: run.pausedMs + pause,
         pausedAt: null,
       });
     }
@@ -261,16 +333,14 @@ export function useWorkoutRunner(workout: Workout) {
   const finishNow = useCallback(() => {
     if (!run) return;
     const at = Date.now();
-    const elapsed = (run.pausedAt ?? at) - run.phaseStartedAt;
     patch({
+      ...bucketFor(at),
       phase: 'done',
-      workSec: run.phase === 'work' ? run.workSec + Math.max(0, elapsed / 1000) : run.workSec,
-      restSec: run.phase === 'rest' ? run.restSec + Math.max(0, elapsed / 1000) : run.restSec,
       phaseStartedAt: at,
       phaseDurationSec: 0,
       pausedAt: null,
     });
-  }, [patch, run]);
+  }, [patch, run, bucketFor]);
 
   const clearRun = useCallback(() => {
     createdRef.current = true;
@@ -289,7 +359,8 @@ export function useWorkoutRunner(workout: Workout) {
       finishedAt: Date.now(),
       workSec: Math.round(run.workSec),
       restSec: Math.round(run.restSec),
-      totalSec: Math.round(run.workSec + run.restSec),
+      warmupSec: Math.round(run.warmupSec),
+      totalSec: Math.round(run.workSec + run.restSec + run.warmupSec),
       plannedSets: total,
       completedSets: completed,
       completed: completed >= total,
@@ -304,8 +375,9 @@ export function useWorkoutRunner(workout: Workout) {
     exercise,
     start,
     completeSet,
-    beginWork,
+    advance,
     addRest,
+    setRestOverride,
     skipExercise,
     undoSet,
     togglePause,

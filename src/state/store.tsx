@@ -13,14 +13,37 @@ import { reducer, type Action } from './reducer';
 
 const STORAGE_KEY = 'neurofit.state.v1';
 
+/**
+ * v1 stored `settings.sound` as a boolean and had no warm-up phase. Carry the
+ * history over instead of wiping it, and drop any run that was mid-flight.
+ */
+function migrate(parsed: Record<string, unknown>, base: AppState): AppState {
+  const stored = parsed as Partial<AppState> & { settings?: { sound?: boolean } };
+  const soundMode = stored.settings?.sound === false ? 'off' : base.settings.soundMode;
+  return {
+    ...base,
+    ...(stored as Partial<AppState>),
+    version: STATE_VERSION,
+    settings: { ...base.settings, ...stored.settings, soundMode },
+    sessions: (stored.sessions ?? base.sessions).map((session) => ({
+      ...session,
+      warmupSec: session.warmupSec ?? 0,
+    })),
+    run: null,
+  };
+}
+
 function loadState(): AppState {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return createInitialState();
     const parsed = JSON.parse(raw) as Partial<AppState>;
-    if (parsed.version !== STATE_VERSION || !parsed.program) return createInitialState();
-    // Merge over a fresh state so a field added later is never undefined.
+    if (!parsed.program) return createInitialState();
     const base = createInitialState();
+    if (parsed.version !== STATE_VERSION) {
+      return migrate(parsed as Record<string, unknown>, base);
+    }
+    // Merge over a fresh state so a field added later is never undefined.
     return {
       ...base,
       ...parsed,

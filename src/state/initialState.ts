@@ -2,7 +2,7 @@ import type { AppState, ExerciseLog, NutritionDay, Session, Workout } from '../t
 import { createProgram, MEALS_PER_DAY, plannedSets } from '../data/program';
 import { addDays, daysBetween, fromISODate, isoWeekday, toISODate } from '../utils/date';
 
-export const STATE_VERSION = 1;
+export const STATE_VERSION = 2;
 
 /** Date a program workout is scheduled on. */
 export function workoutDate(programStart: Date, workout: Workout): Date {
@@ -37,6 +37,7 @@ function seedSessions(workouts: Workout[], programStart: Date, today: Date): Ses
         finishedAt: startedAt + workout.durationMin * 60_000,
         workSec: Math.round(workSec),
         restSec: Math.round(restSec),
+        warmupSec: workout.exercises.length * 45,
         totalSec: workout.durationMin * 60,
         plannedSets: sets,
         completedSets: sets,
@@ -91,11 +92,12 @@ export function createInitialState(now = new Date()): AppState {
     sessions: seedSessions(program.workouts, programStart, now),
     nutrition: seedNutrition(programStart, now),
     settings: {
-      sound: true,
+      soundMode: 'beeps',
       vibration: true,
       autoAdvance: true,
       keepAwake: true,
       prepSec: 10,
+      tempo: { enabled: false, downSec: 4, upSec: 1 },
     },
     run: null,
   };

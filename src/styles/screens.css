@@ -644,3 +644,48 @@
 .danger-zone__actions .btn {
   width: 100%;
 }
+
+/* ---------- three-way sound picker ---------- */
+
+.sound-choice {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.sound-choice__options {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-2);
+}
+
+.sound-choice__btn {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated-2);
+  border: 1px solid transparent;
+  text-align: left;
+}
+
+.sound-choice__btn--active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.sound-choice__title {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.sound-choice__btn--active .sound-choice__title {
+  color: var(--accent);
+}
+
+.sound-choice__hint {
+  font-size: 10px;
+  color: var(--text-dim);
+  line-height: 1.25;
+}

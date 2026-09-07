@@ -58,6 +58,7 @@ export interface Session {
   finishedAt: number;
   workSec: number;
   restSec: number;
+  warmupSec: number;
   totalSec: number;
   plannedSets: number;
   completedSets: number;
@@ -90,16 +91,32 @@ export interface Profile {
   weightKg: number;
 }
 
+/**
+ * How a countdown is announced:
+ * - `beeps`     — a signal at 10 s, 5 s and zero (варіант 1);
+ * - `countdown` — the last ten seconds are counted out loud (варіант 2);
+ * - `off`       — silence.
+ */
+export type SoundMode = 'beeps' | 'countdown' | 'off';
+
+/** Metronome for a set: N seconds down (eccentric), M seconds up. */
+export interface TempoSettings {
+  enabled: boolean;
+  downSec: number;
+  upSec: number;
+}
+
 export interface Settings {
-  sound: boolean;
+  soundMode: SoundMode;
   vibration: boolean;
   /** Skip the rest countdown and jump straight to the next set. */
   autoAdvance: boolean;
   keepAwake: boolean;
   prepSec: number;
+  tempo: TempoSettings;
 }
 
-export type RunPhase = 'prep' | 'work' | 'rest' | 'done';
+export type RunPhase = 'prep' | 'warmup' | 'work' | 'rest' | 'done';
 
 /** Live state of a workout in progress — persisted so a reload can resume it. */
 export interface RunState {
@@ -114,8 +131,13 @@ export interface RunState {
   phaseDurationSec: number;
   /** Epoch ms of the pause, or null when running. */
   pausedAt: number | null;
+  /** Total time spent paused, so the overall clock can exclude it. */
+  pausedMs: number;
   workSec: number;
   restSec: number;
+  warmupSec: number;
+  /** Rest length chosen at the start, applied to every exercise; null = per exercise. */
+  restOverrideSec: number | null;
   logs: ExerciseLog[];
   /** Last weight used per exercise, to pre-fill the next set. */
   lastWeight: Record<string, number>;
