@@ -2,7 +2,7 @@ import type { AppState, ExerciseLog, NutritionDay, Session, Workout } from '../t
 import { createProgram, MEALS_PER_DAY, plannedSets } from '../data/program';
 import { addDays, daysBetween, fromISODate, isoWeekday, toISODate } from '../utils/date';
 
-export const STATE_VERSION = 2;
+export const STATE_VERSION = 3;
 
 /** Date a program workout is scheduled on. */
 export function workoutDate(programStart: Date, workout: Workout): Date {
@@ -24,9 +24,12 @@ function seedSessions(workouts: Workout[], programStart: Date, today: Date): Ses
       const logs: ExerciseLog[] = workout.exercises.map((exercise) => ({
         exerciseId: exercise.id,
         name: exercise.name,
+        warmupSec: 45,
         sets: Array.from({ length: exercise.sets }, () => ({
           reps: exercise.repsMax,
           weightKg: exercise.weightKg,
+          workSec: exercise.repsMax * 3,
+          restSec: exercise.restSec,
         })),
       }));
       const sets = plannedSets(workout);

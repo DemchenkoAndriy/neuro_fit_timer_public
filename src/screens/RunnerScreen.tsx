@@ -262,7 +262,10 @@ function Runner({ workout }: { workout: Workout }) {
           </p>
 
           <div className="summary-grid">
-            <SummaryStat value={formatDuration(view.totalElapsedSec)} label="загалом" />
+            <SummaryStat
+              value={formatDuration(result?.totalSec ?? view.totalElapsedSec)}
+              label="загалом"
+            />
             <SummaryStat value={`${view.completedSets}/${view.plannedSets}`} label="підходів" />
             <SummaryStat value={formatDuration(run.workSec)} label="під навантаженням" />
             <SummaryStat value={formatDuration(run.warmupSec)} label="розминка" />
@@ -273,17 +276,59 @@ function Runner({ workout }: { workout: Workout }) {
             />
           </div>
 
-          <ul className="summary-list">
-            {run.logs.map((log) => (
-              <li key={log.exerciseId} className="summary-item">
-                <span className="summary-item__name">{log.name}</span>
-                <span className="summary-item__sets num">
-                  {log.sets
-                    .map((set) => `${set.reps}${set.weightKg > 0 ? `×${set.weightKg}` : ''}`)
-                    .join(' · ')}
-                </span>
-              </li>
-            ))}
+          <h3 className="summary-heading">Деталізація</h3>
+          <ul className="breakdown">
+            {run.logs.map((log) => {
+              const position = workout.exercises.findIndex(
+                (item) => item.id === log.exerciseId,
+              );
+              const total =
+                log.warmupSec +
+                log.sets.reduce((sum, set) => sum + set.workSec + set.restSec, 0);
+              return (
+                <li key={log.exerciseId} className="breakdown__item">
+                  <div className="breakdown__head">
+                    <span className="breakdown__index num">
+                      {position >= 0 ? position + 1 : '—'}
+                    </span>
+                    <span className="breakdown__name">{log.name}</span>
+                    <span className="breakdown__total num">{formatClock(total)}</span>
+                  </div>
+
+                  {log.warmupSec > 0 && (
+                    <div className="breakdown__row breakdown__row--warmup">
+                      <span className="breakdown__label">Розминка</span>
+                      <span />
+                      <span className="breakdown__work num">{formatClock(log.warmupSec)}</span>
+                      <span />
+                    </div>
+                  )}
+
+                  {log.sets.map((set, index) => (
+                    <div key={index} className="breakdown__row">
+                      <span className="breakdown__label">Підхід {index + 1}</span>
+                      <span className="breakdown__reps num">
+                        {set.reps}
+                        {set.weightKg > 0 ? ` × ${set.weightKg} кг` : ''}
+                      </span>
+                      <span className="breakdown__work num">{formatClock(set.workSec)}</span>
+                      <span className="breakdown__rest num">
+                        {set.restSec > 0 ? `відп. ${formatClock(set.restSec)}` : '—'}
+                      </span>
+                    </div>
+                  ))}
+
+                  {log.sets.length === 0 && (
+                    <div className="breakdown__row">
+                      <span className="breakdown__label dim">Підходів не зафіксовано</span>
+                      <span />
+                      <span />
+                      <span />
+                    </div>
+                  )}
+                </li>
+              );
+            })}
             {run.logs.length === 0 && (
               <li className="empty-note">Жодного підходу не зафіксовано.</li>
             )}

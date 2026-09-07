@@ -303,32 +303,99 @@
   font-size: 11px;
 }
 
-.summary-list {
+.summary-heading {
   width: 100%;
-  margin-top: var(--space-4);
+  margin-top: var(--space-5);
+  text-align: left;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+/* Per-exercise breakdown: warm-up, every set, and the rest that followed it. */
+.breakdown {
+  width: 100%;
+  margin-top: var(--space-2);
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
   text-align: left;
 }
 
-.summary-item {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-3);
-  font-size: 13px;
+.breakdown__item {
+  background: var(--bg-elevated);
+  border-radius: var(--radius);
+  padding: var(--space-3);
 }
 
-.summary-item__name {
+.breakdown__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.breakdown__index {
+  width: 22px;
+  height: 22px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-pill);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.breakdown__name {
   flex: 1;
   min-width: 0;
+  font-size: 14px;
+  font-weight: 600;
 }
 
-.summary-item__sets {
-  font-size: 12px;
+.breakdown__total {
+  font-size: 13px;
+  font-weight: 700;
   color: var(--text-muted);
   white-space: nowrap;
+}
+
+.breakdown__row {
+  display: grid;
+  grid-template-columns: 4.6em 1fr auto auto;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding-top: var(--space-2);
+  font-size: 12px;
+}
+
+.breakdown__label {
+  color: var(--text-dim);
+}
+
+.breakdown__row--warmup .breakdown__label,
+.breakdown__row--warmup .breakdown__work {
+  color: var(--warmup);
+}
+
+.breakdown__reps {
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.breakdown__work {
+  color: var(--success);
+  white-space: nowrap;
+}
+
+.breakdown__rest {
+  color: var(--info);
+  white-space: nowrap;
+  min-width: 5.6em;
+  text-align: right;
 }
 
 .runner__summary-note {

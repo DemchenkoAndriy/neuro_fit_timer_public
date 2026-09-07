@@ -14,8 +14,9 @@ import { reducer, type Action } from './reducer';
 const STORAGE_KEY = 'neurofit.state.v1';
 
 /**
- * v1 stored `settings.sound` as a boolean and had no warm-up phase. Carry the
- * history over instead of wiping it, and drop any run that was mid-flight.
+ * Older formats had a boolean `settings.sound`, no warm-up phase and no
+ * per-set timings. Carry the history over instead of wiping it, filling the
+ * new fields with zeros, and drop any run that was mid-flight.
  */
 function migrate(parsed: Record<string, unknown>, base: AppState): AppState {
   const stored = parsed as Partial<AppState> & { settings?: { sound?: boolean } };
@@ -28,6 +29,15 @@ function migrate(parsed: Record<string, unknown>, base: AppState): AppState {
     sessions: (stored.sessions ?? base.sessions).map((session) => ({
       ...session,
       warmupSec: session.warmupSec ?? 0,
+      logs: (session.logs ?? []).map((log) => ({
+        ...log,
+        warmupSec: log.warmupSec ?? 0,
+        sets: log.sets.map((set) => ({
+          ...set,
+          workSec: set.workSec ?? 0,
+          restSec: set.restSec ?? 0,
+        })),
+      })),
     })),
     run: null,
   };

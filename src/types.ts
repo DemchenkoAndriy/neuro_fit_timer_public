@@ -41,11 +41,17 @@ export interface Program {
 export interface SetLog {
   reps: number;
   weightKg: number;
+  /** Time under load for this set. */
+  workSec: number;
+  /** Rest actually taken after this set. */
+  restSec: number;
 }
 
 export interface ExerciseLog {
   exerciseId: string;
   name: string;
+  /** Time spent warming this exercise up. */
+  warmupSec: number;
   sets: SetLog[];
 }
 

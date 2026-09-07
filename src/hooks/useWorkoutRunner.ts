@@ -146,17 +146,54 @@ export function useWorkoutRunner(workout: Workout) {
     [run],
   );
 
-  /** Add the finished phase to its bucket. */
-  const bucketFor = useCallback(
+  /**
+   * Close the current phase: add its time to the run totals and to the log
+   * entry it belongs to, so the summary can break the workout down per set.
+   */
+  const closePhase = useCallback(
     (at: number): Partial<RunState> => {
       if (!run) return {};
       const elapsed = phaseElapsed(at);
-      if (run.phase === 'work') return { workSec: run.workSec + elapsed };
-      if (run.phase === 'rest') return { restSec: run.restSec + elapsed };
-      if (run.phase === 'warmup') return { warmupSec: run.warmupSec + elapsed };
+
+      if (run.phase === 'work') {
+        // The set itself is written by completeSet, which knows the reps.
+        return { workSec: run.workSec + elapsed };
+      }
+
+      if (run.phase === 'warmup') {
+        if (!exercise) return { warmupSec: run.warmupSec + elapsed };
+        const logs = [...run.logs];
+        const index = logs.findIndex((log) => log.exerciseId === exercise.id);
+        if (index >= 0) {
+          logs[index] = { ...logs[index], warmupSec: logs[index].warmupSec + elapsed };
+        } else {
+          logs.push({
+            exerciseId: exercise.id,
+            name: exercise.name,
+            warmupSec: elapsed,
+            sets: [],
+          });
+        }
+        return { warmupSec: run.warmupSec + elapsed, logs };
+      }
+
+      if (run.phase === 'rest') {
+        // Rest always follows the set that was just logged.
+        const logs = [...run.logs];
+        for (let index = logs.length - 1; index >= 0; index -= 1) {
+          if (logs[index].sets.length === 0) continue;
+          const sets = [...logs[index].sets];
+          const last = sets[sets.length - 1];
+          sets[sets.length - 1] = { ...last, restSec: last.restSec + elapsed };
+          logs[index] = { ...logs[index], sets };
+          break;
+        }
+        return { restSec: run.restSec + elapsed, logs };
+      }
+
       return {};
     },
-    [run, phaseElapsed],
+    [run, exercise, phaseElapsed],
   );
 
   /** Log the finished set and move on to rest, the next warm-up, or the summary. */
@@ -164,21 +201,24 @@ export function useWorkoutRunner(workout: Workout) {
     (reps: number, weightKg: number) => {
       if (!run || !exercise) return;
       const at = Date.now();
+      const setLog = { reps, weightKg, workSec: phaseElapsed(at), restSec: 0 };
 
       const logs = [...run.logs];
       const existing = logs.findIndex((log) => log.exerciseId === exercise.id);
       if (existing >= 0) {
-        logs[existing] = {
-          ...logs[existing],
-          sets: [...logs[existing].sets, { reps, weightKg }],
-        };
+        logs[existing] = { ...logs[existing], sets: [...logs[existing].sets, setLog] };
       } else {
-        logs.push({ exerciseId: exercise.id, name: exercise.name, sets: [{ reps, weightKg }] });
+        logs.push({
+          exerciseId: exercise.id,
+          name: exercise.name,
+          warmupSec: 0,
+          sets: [setLog],
+        });
       }
 
       const base: RunState = {
         ...run,
-        ...bucketFor(at),
+        ...closePhase(at),
         logs,
         lastWeight: { ...run.lastWeight, [exercise.id]: weightKg },
         pausedAt: null,
@@ -222,7 +262,7 @@ export function useWorkoutRunner(workout: Workout) {
         },
       });
     },
-    [dispatch, run, exercise, workout.exercises.length, bucketFor],
+    [dispatch, run, exercise, workout.exercises.length, closePhase, phaseElapsed],
   );
 
   /**
@@ -236,14 +276,14 @@ export function useWorkoutRunner(workout: Workout) {
       type: 'run/set',
       run: {
         ...run,
-        ...bucketFor(at),
+        ...closePhase(at),
         phase: run.phase === 'prep' ? 'warmup' : 'work',
         phaseStartedAt: at,
         phaseDurationSec: 0,
         pausedAt: null,
       },
     });
-  }, [dispatch, run, bucketFor]);
+  }, [dispatch, run, closePhase]);
 
   const addRest = useCallback(
     (seconds: number) => {
@@ -273,7 +313,7 @@ export function useWorkoutRunner(workout: Workout) {
     const at = Date.now();
     if (run.exerciseIndex + 1 >= workout.exercises.length) {
       patch({
-        ...bucketFor(at),
+        ...closePhase(at),
         phase: 'done',
         phaseStartedAt: at,
         phaseDurationSec: 0,
@@ -282,7 +322,7 @@ export function useWorkoutRunner(workout: Workout) {
       return;
     }
     patch({
-      ...bucketFor(at),
+      ...closePhase(at),
       exerciseIndex: run.exerciseIndex + 1,
       setIndex: 0,
       phase: 'warmup',
@@ -290,7 +330,7 @@ export function useWorkoutRunner(workout: Workout) {
       phaseDurationSec: 0,
       pausedAt: null,
     });
-  }, [patch, run, workout.exercises.length, bucketFor]);
+  }, [patch, run, workout.exercises.length, closePhase]);
 
   /** Undo the last logged set and redo it. */
   const undoSet = useCallback(() => {
@@ -305,7 +345,7 @@ export function useWorkoutRunner(workout: Workout) {
     const exerciseIndex = workout.exercises.findIndex((item) => item.id === target.exerciseId);
 
     patch({
-      logs: logs.filter((log) => log.sets.length > 0),
+      logs: logs.filter((log) => log.sets.length > 0 || log.warmupSec > 0),
       exerciseIndex: exerciseIndex >= 0 ? exerciseIndex : run.exerciseIndex,
       setIndex: Math.max(0, target.sets.length - 1),
       phase: 'work',
@@ -334,13 +374,13 @@ export function useWorkoutRunner(workout: Workout) {
     if (!run) return;
     const at = Date.now();
     patch({
-      ...bucketFor(at),
+      ...closePhase(at),
       phase: 'done',
       phaseStartedAt: at,
       phaseDurationSec: 0,
       pausedAt: null,
     });
-  }, [patch, run, bucketFor]);
+  }, [patch, run, closePhase]);
 
   const clearRun = useCallback(() => {
     createdRef.current = true;
@@ -352,15 +392,18 @@ export function useWorkoutRunner(workout: Workout) {
     if (!run) return;
     const completed = countLoggedSets(run.logs);
     const total = plannedSets(workout);
+    const finishedAt = Date.now();
     const session: Session = {
       id: `s-${workout.id}-${run.startedAt}`,
       workoutId: workout.id,
       startedAt: run.startedAt,
-      finishedAt: Date.now(),
+      finishedAt,
       workSec: Math.round(run.workSec),
       restSec: Math.round(run.restSec),
       warmupSec: Math.round(run.warmupSec),
-      totalSec: Math.round(run.workSec + run.restSec + run.warmupSec),
+      // Wall clock from the first second, pauses excluded — the same number
+      // the runner shows, so the summary and the history never disagree.
+      totalSec: Math.round((finishedAt - run.startedAt - run.pausedMs) / 1000),
       plannedSets: total,
       completedSets: completed,
       completed: completed >= total,
