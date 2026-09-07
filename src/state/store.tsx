@@ -29,9 +29,9 @@ function migrate(parsed: Record<string, unknown>, base: AppState): AppState {
     sessions: (stored.sessions ?? base.sessions).map((session) => ({
       ...session,
       warmupSec: session.warmupSec ?? 0,
+      cooldownSec: session.cooldownSec ?? 0,
       logs: (session.logs ?? []).map((log) => ({
         ...log,
-        warmupSec: log.warmupSec ?? 0,
         sets: log.sets.map((set) => ({
           ...set,
           workSec: set.workSec ?? 0,

@@ -37,7 +37,7 @@ function newRun(workout: Workout, prepSec: number, now: number): RunState {
     startedAt: now,
     exerciseIndex: 0,
     setIndex: 0,
-    // Every exercise opens with an open-ended warm-up.
+    // One open-ended warm-up opens the whole workout.
     phase: prepSec > 0 ? 'prep' : 'warmup',
     phaseStartedAt: now,
     phaseDurationSec: prepSec > 0 ? prepSec : 0,
@@ -46,6 +46,8 @@ function newRun(workout: Workout, prepSec: number, now: number): RunState {
     workSec: 0,
     restSec: 0,
     warmupSec: 0,
+    cooldownSec: 0,
+    cooldownEnabled: false,
     restOverrideSec: null,
     logs: [],
     lastWeight: {},
@@ -160,22 +162,8 @@ export function useWorkoutRunner(workout: Workout) {
         return { workSec: run.workSec + elapsed };
       }
 
-      if (run.phase === 'warmup') {
-        if (!exercise) return { warmupSec: run.warmupSec + elapsed };
-        const logs = [...run.logs];
-        const index = logs.findIndex((log) => log.exerciseId === exercise.id);
-        if (index >= 0) {
-          logs[index] = { ...logs[index], warmupSec: logs[index].warmupSec + elapsed };
-        } else {
-          logs.push({
-            exerciseId: exercise.id,
-            name: exercise.name,
-            warmupSec: elapsed,
-            sets: [],
-          });
-        }
-        return { warmupSec: run.warmupSec + elapsed, logs };
-      }
+      if (run.phase === 'warmup') return { warmupSec: run.warmupSec + elapsed };
+      if (run.phase === 'cooldown') return { cooldownSec: run.cooldownSec + elapsed };
 
       if (run.phase === 'rest') {
         // Rest always follows the set that was just logged.
@@ -208,12 +196,7 @@ export function useWorkoutRunner(workout: Workout) {
       if (existing >= 0) {
         logs[existing] = { ...logs[existing], sets: [...logs[existing].sets, setLog] };
       } else {
-        logs.push({
-          exerciseId: exercise.id,
-          name: exercise.name,
-          warmupSec: 0,
-          sets: [setLog],
-        });
+        logs.push({ exerciseId: exercise.id, name: exercise.name, sets: [setLog] });
       }
 
       const base: RunState = {
@@ -230,20 +213,9 @@ export function useWorkoutRunner(workout: Workout) {
       if (lastSet && lastExercise) {
         dispatch({
           type: 'run/set',
-          run: { ...base, phase: 'done', phaseStartedAt: at, phaseDurationSec: 0 },
-        });
-        return;
-      }
-
-      if (lastSet) {
-        // Moving on: the next exercise opens with its own warm-up.
-        dispatch({
-          type: 'run/set',
           run: {
             ...base,
-            exerciseIndex: run.exerciseIndex + 1,
-            setIndex: 0,
-            phase: 'warmup',
+            phase: run.cooldownEnabled ? 'cooldown' : 'done',
             phaseStartedAt: at,
             phaseDurationSec: 0,
           },
@@ -251,11 +223,13 @@ export function useWorkoutRunner(workout: Workout) {
         return;
       }
 
+      // Rest, then either the next set or the first set of the next exercise.
       dispatch({
         type: 'run/set',
         run: {
           ...base,
-          setIndex: run.setIndex + 1,
+          exerciseIndex: lastSet ? run.exerciseIndex + 1 : run.exerciseIndex,
+          setIndex: lastSet ? 0 : run.setIndex + 1,
           phase: 'rest',
           phaseStartedAt: at,
           phaseDurationSec: restLengthFor(run, exercise),
@@ -266,24 +240,34 @@ export function useWorkoutRunner(workout: Workout) {
   );
 
   /**
-   * Move to the next phase: prep → warm-up, warm-up → set, rest → set.
-   * Used by the buttons and by the countdowns when they hit zero.
+   * Move to the next phase: prep → warm-up, warm-up → set, rest → set,
+   * cool-down → summary. Used by the buttons and by the countdowns at zero.
    */
   const advance = useCallback(() => {
     if (!run) return;
     const at = Date.now();
+    const next: RunState['phase'] =
+      run.phase === 'prep' ? 'warmup' : run.phase === 'cooldown' ? 'done' : 'work';
     dispatch({
       type: 'run/set',
       run: {
         ...run,
         ...closePhase(at),
-        phase: run.phase === 'prep' ? 'warmup' : 'work',
+        phase: next,
         phaseStartedAt: at,
         phaseDurationSec: 0,
         pausedAt: null,
       },
     });
   }, [dispatch, run, closePhase]);
+
+  /** Cool-down is opt-in per workout. */
+  const setCooldown = useCallback(
+    (enabled: boolean) => {
+      patch({ cooldownEnabled: enabled });
+    },
+    [patch],
+  );
 
   const addRest = useCallback(
     (seconds: number) => {
@@ -307,14 +291,14 @@ export function useWorkoutRunner(workout: Workout) {
     [patch, run],
   );
 
-  /** Drop the remaining sets of the current exercise and warm up the next one. */
+  /** Drop the remaining sets of the current exercise and move to the next one. */
   const skipExercise = useCallback(() => {
     if (!run) return;
     const at = Date.now();
     if (run.exerciseIndex + 1 >= workout.exercises.length) {
       patch({
         ...closePhase(at),
-        phase: 'done',
+        phase: run.cooldownEnabled ? 'cooldown' : 'done',
         phaseStartedAt: at,
         phaseDurationSec: 0,
         pausedAt: null,
@@ -325,7 +309,7 @@ export function useWorkoutRunner(workout: Workout) {
       ...closePhase(at),
       exerciseIndex: run.exerciseIndex + 1,
       setIndex: 0,
-      phase: 'warmup',
+      phase: 'work',
       phaseStartedAt: at,
       phaseDurationSec: 0,
       pausedAt: null,
@@ -345,7 +329,7 @@ export function useWorkoutRunner(workout: Workout) {
     const exerciseIndex = workout.exercises.findIndex((item) => item.id === target.exerciseId);
 
     patch({
-      logs: logs.filter((log) => log.sets.length > 0 || log.warmupSec > 0),
+      logs: logs.filter((log) => log.sets.length > 0),
       exerciseIndex: exerciseIndex >= 0 ? exerciseIndex : run.exerciseIndex,
       setIndex: Math.max(0, target.sets.length - 1),
       phase: 'work',
@@ -401,6 +385,7 @@ export function useWorkoutRunner(workout: Workout) {
       workSec: Math.round(run.workSec),
       restSec: Math.round(run.restSec),
       warmupSec: Math.round(run.warmupSec),
+      cooldownSec: Math.round(run.cooldownSec),
       // Wall clock from the first second, pauses excluded — the same number
       // the runner shows, so the summary and the history never disagree.
       totalSec: Math.round((finishedAt - run.startedAt - run.pausedMs) / 1000),
@@ -421,6 +406,7 @@ export function useWorkoutRunner(workout: Workout) {
     advance,
     addRest,
     setRestOverride,
+    setCooldown,
     skipExercise,
     undoSet,
     togglePause,

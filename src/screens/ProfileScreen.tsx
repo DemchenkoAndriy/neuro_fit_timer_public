@@ -16,7 +16,10 @@ import {
   workoutById,
 } from '../state/selectors';
 import { formatDuration } from '../utils/date';
-import type { SoundMode } from '../types';
+import { SIGNAL_TONE_LABEL, useAudioCue } from '../hooks/useAudioCue';
+import type { SignalTone, SoundMode } from '../types';
+
+const SIGNAL_TONES: SignalTone[] = ['beep', 'chime', 'click', 'horn'];
 
 const SOUND_OPTIONS: { mode: SoundMode; title: string; hint: string }[] = [
   { mode: 'beeps', title: 'Варіант 1', hint: 'сигнал за 10 с, 5 с і в кінці' },
@@ -30,7 +33,9 @@ export function ProfileScreen() {
   const [confirmReset, setConfirmReset] = useState(false);
 
   const training = trainingProgress(state);
-  const { tempo } = state.settings;
+  const { tempo, signalTone } = state.settings;
+  // Always audible here, so picking a tone plays it even with sound switched off.
+  const preview = useAudioCue(true, signalTone);
   const history = [...state.sessions].sort((a, b) => b.startedAt - a.startedAt).slice(0, 12);
 
   return (
@@ -144,6 +149,30 @@ export function ProfileScreen() {
                 </button>
               ))}
             </div>
+          </div>
+
+          <div className="sound-choice">
+            <span className="toggle__label">Звук сигналів</span>
+            <div className="sound-choice__options sound-choice__options--four">
+              {SIGNAL_TONES.map((tone) => (
+                <button
+                  key={tone}
+                  type="button"
+                  role="radio"
+                  aria-checked={signalTone === tone}
+                  className={`sound-choice__btn${
+                    signalTone === tone ? ' sound-choice__btn--active' : ''
+                  }`}
+                  onClick={() => {
+                    dispatch({ type: 'settings/update', patch: { signalTone: tone } });
+                    preview('go', { force: true, tone });
+                  }}
+                >
+                  <span className="sound-choice__title">{SIGNAL_TONE_LABEL[tone]}</span>
+                </button>
+              ))}
+            </div>
+            <p className="dim sound-choice__note">Торкнись, щоб прослухати.</p>
           </div>
           <Toggle
             label="Вібрація"

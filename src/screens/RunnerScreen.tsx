@@ -20,6 +20,7 @@ const PHASE_COLOR: Record<RunPhase, string> = {
   warmup: 'var(--warmup)',
   work: 'var(--success)',
   rest: 'var(--info)',
+  cooldown: 'var(--warmup)',
   done: 'var(--success)',
 };
 
@@ -28,6 +29,7 @@ const PHASE_LABEL: Record<RunPhase, string> = {
   warmup: 'Розминка',
   work: 'Робочий підхід',
   rest: 'Відпочинок',
+  cooldown: 'Заминка',
   done: 'Готово',
 };
 
@@ -73,6 +75,7 @@ function Runner({ workout }: { workout: Workout }) {
     advance,
     addRest,
     setRestOverride,
+    setCooldown,
     skipExercise,
     undoSet,
     togglePause,
@@ -85,7 +88,7 @@ function Runner({ workout }: { workout: Workout }) {
   const phase: RunPhase = run?.phase ?? 'prep';
 
   const soundOn = soundMode !== 'off';
-  const cue = useAudioCue(soundOn);
+  const cue = useAudioCue(soundOn, settings.signalTone);
   const speak = useSpeech(soundMode === 'countdown');
   const vibrate = useVibrate(settings.vibration);
   useWakeLock(settings.keepAwake && phase !== 'done' && Boolean(run));
@@ -192,15 +195,21 @@ function Runner({ workout }: { workout: Workout }) {
     [run],
   );
 
-  // Where we are inside the current 4/1 cycle.
+  // Where we are inside the current 4/1 cycle. The column fills while the
+  // weight goes down and empties on the way up, so it reads like the lift.
   const tempoState = useMemo(() => {
     const cycle = tempo.downSec + tempo.upSec;
     const position = view.phaseElapsedSec % cycle;
     const isDown = position < tempo.downSec;
+    const ratio = isDown
+      ? position / tempo.downSec
+      : (position - tempo.downSec) / tempo.upSec;
     return {
       isDown,
-      label: isDown ? `Опускай ${Math.ceil(tempo.downSec - position)}` : 'Підйом!',
-      ratio: isDown ? position / tempo.downSec : (position - tempo.downSec) / tempo.upSec,
+      count: isDown
+        ? Math.ceil(tempo.downSec - position)
+        : Math.ceil(tempo.downSec + tempo.upSec - position),
+      fill: isDown ? ratio : 1 - ratio,
       reps: Math.floor(view.phaseElapsedSec / cycle),
     };
   }, [view.phaseElapsedSec, tempo]);
@@ -269,6 +278,10 @@ function Runner({ workout }: { workout: Workout }) {
             <SummaryStat value={`${view.completedSets}/${view.plannedSets}`} label="підходів" />
             <SummaryStat value={formatDuration(run.workSec)} label="під навантаженням" />
             <SummaryStat value={formatDuration(run.warmupSec)} label="розминка" />
+            <SummaryStat
+              value={run.cooldownSec > 0 ? formatDuration(run.cooldownSec) : '—'}
+              label="заминка"
+            />
             <SummaryStat value={formatDuration(run.restSec)} label="відпочинок" />
             <SummaryStat
               value={`${Math.round(volume).toLocaleString('uk-UA')} кг`}
@@ -278,13 +291,22 @@ function Runner({ workout }: { workout: Workout }) {
 
           <h3 className="summary-heading">Деталізація</h3>
           <ul className="breakdown">
+            {run.warmupSec > 0 && (
+              <li className="breakdown__item breakdown__item--single">
+                <span className="breakdown__name">Розминка на початку</span>
+                <span className="breakdown__total num breakdown__total--warmup">
+                  {formatClock(run.warmupSec)}
+                </span>
+              </li>
+            )}
             {run.logs.map((log) => {
               const position = workout.exercises.findIndex(
                 (item) => item.id === log.exerciseId,
               );
-              const total =
-                log.warmupSec +
-                log.sets.reduce((sum, set) => sum + set.workSec + set.restSec, 0);
+              const total = log.sets.reduce(
+                (sum, set) => sum + set.workSec + set.restSec,
+                0,
+              );
               return (
                 <li key={log.exerciseId} className="breakdown__item">
                   <div className="breakdown__head">
@@ -294,15 +316,6 @@ function Runner({ workout }: { workout: Workout }) {
                     <span className="breakdown__name">{log.name}</span>
                     <span className="breakdown__total num">{formatClock(total)}</span>
                   </div>
-
-                  {log.warmupSec > 0 && (
-                    <div className="breakdown__row breakdown__row--warmup">
-                      <span className="breakdown__label">Розминка</span>
-                      <span />
-                      <span className="breakdown__work num">{formatClock(log.warmupSec)}</span>
-                      <span />
-                    </div>
-                  )}
 
                   {log.sets.map((set, index) => (
                     <div key={index} className="breakdown__row">
@@ -331,6 +344,14 @@ function Runner({ workout }: { workout: Workout }) {
             })}
             {run.logs.length === 0 && (
               <li className="empty-note">Жодного підходу не зафіксовано.</li>
+            )}
+            {run.cooldownSec > 0 && (
+              <li className="breakdown__item breakdown__item--single">
+                <span className="breakdown__name">Заминка в кінці</span>
+                <span className="breakdown__total num breakdown__total--warmup">
+                  {formatClock(run.cooldownSec)}
+                </span>
+              </li>
             )}
           </ul>
 
@@ -425,46 +446,68 @@ function Runner({ workout }: { workout: Workout }) {
       </div>
 
       <div className="runner__ring">
-        <RingTimer ratio={view.phaseRatio} color={PHASE_COLOR[phase]} size={224} stroke={13}>
+        <div className="runner__ring-side" />
+        <RingTimer ratio={view.phaseRatio} color={PHASE_COLOR[phase]}>
           <p className="runner__phase" style={{ color: PHASE_COLOR[phase] }}>
             {view.paused ? 'Пауза' : PHASE_LABEL[phase]}
           </p>
           <p className="runner__time num">{timeText}</p>
-          {phase !== 'prep' && (
-            <p className="runner__set dim">
-              {phase === 'warmup'
+          <p className="runner__set dim">
+            {phase === 'prep'
+              ? 'налаштуй і починай'
+              : phase === 'warmup' || phase === 'cooldown'
                 ? 'без обмеження часу'
                 : `Підхід ${view.setIndex + 1}/${exercise.sets}`}
-            </p>
-          )}
+          </p>
         </RingTimer>
-      </div>
-
-      <div className="runner__exercise">
-        <p className="runner__exercise-kicker dim">{phase === 'rest' ? 'Далі' : 'Зараз'}</p>
-        <h2 className="runner__exercise-name">{exercise.name}</h2>
-        <p className="muted">
-          ціль {exercise.repsMin}-{exercise.repsMax} повторень
-          {exercise.hint ? ` · ${exercise.hint.toLowerCase()}` : ''}
-        </p>
-      </div>
-
-      {phase === 'work' && tempo.enabled && (
-        <div className={`tempo${tempoState.isDown ? '' : ' tempo--up'}`}>
-          <div className="tempo__head">
-            <span className="tempo__label">{tempoState.label}</span>
-            <span className="tempo__reps num">{tempoState.reps} повт.</span>
-          </div>
-          <ProgressBar
-            ratio={tempoState.ratio}
-            color={tempoState.isDown ? 'var(--info)' : 'var(--success)'}
-            height={6}
-          />
+        <div className="runner__ring-side">
+          {phase === 'work' && tempo.enabled && (
+            <div className={`tempo${tempoState.isDown ? '' : ' tempo--up'}`}>
+              <span className="tempo__count num">{tempoState.count}</span>
+              <div className="tempo__track">
+                <div className="tempo__fill" style={{ height: `${tempoState.fill * 100}%` }} />
+              </div>
+              <span className="tempo__label">{tempoState.isDown ? 'опускай' : 'підйом'}</span>
+              <span className="tempo__reps num">{tempoState.reps} повт.</span>
+            </div>
+          )}
         </div>
+      </div>
+
+      {phase !== 'prep' && (
+      <div className="runner__exercise">
+        {phase === 'warmup' || phase === 'cooldown' ? (
+          <>
+            <p className="runner__exercise-kicker dim">
+              {phase === 'warmup' ? 'Перед тренуванням' : 'Після тренування'}
+            </p>
+            <h2 className="runner__exercise-name">
+              {phase === 'warmup' ? 'Загальна розминка' : 'Заминка та розтяжка'}
+            </h2>
+            <p className="muted">
+              {phase === 'warmup'
+                ? `далі: ${workout.exercises[0].name}`
+                : 'відновлення дихання, легка розтяжка'}
+            </p>
+          </>
+        ) : (
+          <>
+            <p className="runner__exercise-kicker dim">{phase === 'rest' ? 'Далі' : 'Зараз'}</p>
+            <h2 className="runner__exercise-name">{exercise.name}</h2>
+            <p className="muted">
+              ціль {exercise.repsMin}-{exercise.repsMax} повторень
+              {exercise.hint ? ` · ${exercise.hint.toLowerCase()}` : ''}
+            </p>
+          </>
+        )}
+      </div>
       )}
 
       {phase === 'prep' && (
         <div className="runner__prep-settings">
+          <p className="runner__prep-next dim">
+            Тренування №{workout.index} · {workout.focus} · {workout.exercises.length} вправ
+          </p>
           <Stepper
             label="Відпочинок між підходами"
             value={view.restSec}
@@ -477,6 +520,23 @@ function Runner({ workout }: { workout: Workout }) {
           <p className="dim runner__prep-hint">
             Значення застосується до всіх вправ тренування.
           </p>
+          <label className="prep-toggle">
+            <input
+              type="checkbox"
+              className="toggle__input"
+              checked={run.cooldownEnabled}
+              onChange={(event) => setCooldown(event.target.checked)}
+            />
+            <span className="toggle__track" aria-hidden="true">
+              <span className="toggle__thumb" />
+            </span>
+            <span className="prep-toggle__text">
+              <span>Заминка в кінці</span>
+              <span className="dim prep-toggle__hint">
+                вимкнена за замовчуванням, вмикається на кожне тренування окремо
+              </span>
+            </span>
+          </label>
         </div>
       )}
 
@@ -518,15 +578,15 @@ function Runner({ workout }: { workout: Workout }) {
             <Icon name="play" size={18} />
             Розминку завершено
           </Button>
-          <div className="runner__actions-row">
-            <Button variant="ghost" onClick={skipExercise}>
-              <Icon name="skip" size={16} />
-              Наступна вправа
-            </Button>
-            <Button variant="ghost" onClick={undoSet} disabled={view.completedSets === 0}>
-              Скасувати підхід
-            </Button>
-          </div>
+        </div>
+      )}
+
+      {phase === 'cooldown' && (
+        <div className="runner__actions">
+          <Button variant="primary" block onClick={advance}>
+            <Icon name="check" size={18} />
+            Заминку завершено
+          </Button>
         </div>
       )}
 
@@ -536,12 +596,15 @@ function Runner({ workout }: { workout: Workout }) {
             <Icon name="play" size={18} />
             {view.phaseRemainingSec <= 0 ? 'Почати підхід' : 'Пропустити відпочинок'}
           </Button>
-          <div className="runner__actions-row">
+          <div className="runner__actions-row runner__actions-row--three">
+            <Button variant="ghost" onClick={() => addRest(-15)}>
+              −15 с
+            </Button>
             <Button variant="ghost" onClick={() => addRest(15)}>
-              +15 секунд
+              +15 с
             </Button>
             <Button variant="ghost" onClick={undoSet}>
-              Скасувати підхід
+              Скасувати
             </Button>
           </div>
         </div>

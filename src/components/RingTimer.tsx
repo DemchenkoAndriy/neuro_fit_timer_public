@@ -1,42 +1,48 @@
 import type { ReactNode } from 'react';
 
+/** Stroke width in viewBox units — the SVG itself is sized by CSS. */
+const STROKE = 6;
+const RADIUS = (100 - STROKE) / 2;
+const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
+
 interface Props {
   /** 0..1 — share of the ring that is filled. */
   ratio: number;
   color: string;
-  size?: number;
-  stroke?: number;
+  className?: string;
   children: ReactNode;
 }
 
-export function RingTimer({ ratio, color, size = 240, stroke = 12, children }: Props) {
-  const radius = (size - stroke) / 2;
-  const circumference = 2 * Math.PI * radius;
+/**
+ * A circular progress ring. It draws into a normalised viewBox so the size
+ * comes from CSS — that lets the runner shrink it on short screens.
+ */
+export function RingTimer({ ratio, color, className, children }: Props) {
   const filled = Math.max(0, Math.min(1, ratio));
 
   return (
-    <div className="ring" style={{ width: size, height: size }}>
-      <svg width={size} height={size} aria-hidden="true">
+    <div className={`ring${className ? ` ${className}` : ''}`}>
+      <svg viewBox="0 0 100 100" aria-hidden="true">
         <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
+          cx="50"
+          cy="50"
+          r={RADIUS}
           fill="none"
           stroke="var(--bg-elevated-2)"
-          strokeWidth={stroke}
+          strokeWidth={STROKE}
         />
         <circle
           className="ring__progress"
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
+          cx="50"
+          cy="50"
+          r={RADIUS}
           fill="none"
           stroke={color}
-          strokeWidth={stroke}
+          strokeWidth={STROKE}
           strokeLinecap="round"
-          strokeDasharray={circumference}
-          strokeDashoffset={circumference * (1 - filled)}
-          transform={`rotate(-90 ${size / 2} ${size / 2})`}
+          strokeDasharray={CIRCUMFERENCE}
+          strokeDashoffset={CIRCUMFERENCE * (1 - filled)}
+          transform="rotate(-90 50 50)"
         />
       </svg>
       <div className="ring__content">{children}</div>

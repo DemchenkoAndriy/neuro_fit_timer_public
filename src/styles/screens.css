@@ -689,3 +689,16 @@
   color: var(--text-dim);
   line-height: 1.25;
 }
+
+.sound-choice__options--four {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.sound-choice__options--four .sound-choice__btn {
+  align-items: center;
+  text-align: center;
+}
+
+.sound-choice__note {
+  font-size: 10px;
+}

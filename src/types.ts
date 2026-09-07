@@ -50,8 +50,6 @@ export interface SetLog {
 export interface ExerciseLog {
   exerciseId: string;
   name: string;
-  /** Time spent warming this exercise up. */
-  warmupSec: number;
   sets: SetLog[];
 }
 
@@ -64,7 +62,10 @@ export interface Session {
   finishedAt: number;
   workSec: number;
   restSec: number;
+  /** Warm-up at the start of the workout. */
   warmupSec: number;
+  /** Cool-down at the end, when it was switched on. */
+  cooldownSec: number;
   totalSec: number;
   plannedSets: number;
   completedSets: number;
@@ -105,6 +106,9 @@ export interface Profile {
  */
 export type SoundMode = 'beeps' | 'countdown' | 'off';
 
+/** Which tone set the countdown signals use. */
+export type SignalTone = 'beep' | 'chime' | 'click' | 'horn';
+
 /** Metronome for a set: N seconds down (eccentric), M seconds up. */
 export interface TempoSettings {
   enabled: boolean;
@@ -114,6 +118,7 @@ export interface TempoSettings {
 
 export interface Settings {
   soundMode: SoundMode;
+  signalTone: SignalTone;
   vibration: boolean;
   /** Skip the rest countdown and jump straight to the next set. */
   autoAdvance: boolean;
@@ -122,7 +127,7 @@ export interface Settings {
   tempo: TempoSettings;
 }
 
-export type RunPhase = 'prep' | 'warmup' | 'work' | 'rest' | 'done';
+export type RunPhase = 'prep' | 'warmup' | 'work' | 'rest' | 'cooldown' | 'done';
 
 /** Live state of a workout in progress — persisted so a reload can resume it. */
 export interface RunState {
@@ -142,6 +147,9 @@ export interface RunState {
   workSec: number;
   restSec: number;
   warmupSec: number;
+  cooldownSec: number;
+  /** Cool-down is off unless it is switched on for this particular workout. */
+  cooldownEnabled: boolean;
   /** Rest length chosen at the start, applied to every exercise; null = per exercise. */
   restOverrideSec: number | null;
   logs: ExerciseLog[];
