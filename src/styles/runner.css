@@ -617,3 +617,60 @@
 .tempo__fill {
   transition: none;
 }
+
+/* ---------- challenge runner ---------- */
+
+.challenge__reps {
+  font-size: clamp(38px, 8vh, 56px);
+  font-weight: 700;
+  line-height: 1.05;
+  margin-top: 4px;
+  letter-spacing: -0.02em;
+}
+
+.challenge__target {
+  font-size: 0.45em;
+  color: var(--text-dim);
+  font-weight: 600;
+}
+
+.challenge__credit {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  margin-top: var(--gap);
+  padding: var(--space-3);
+  border-radius: var(--radius);
+  background: var(--bg-elevated);
+  font-size: 12px;
+}
+
+.challenge__credit-value {
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.challenge__credit-hint {
+  font-size: 10px;
+}
+
+.challenge__correct {
+  margin-top: var(--gap);
+  padding: var(--space-3);
+  border-radius: var(--radius);
+  background: var(--bg-elevated);
+}
+
+.challenge__remaining {
+  font-size: 12px;
+  text-align: center;
+  margin-top: var(--space-2);
+}
+
+.challenge__result {
+  font-size: 46px;
+  font-weight: 700;
+  margin-top: var(--space-3);
+  letter-spacing: -0.02em;
+}

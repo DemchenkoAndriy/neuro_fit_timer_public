@@ -146,6 +146,12 @@ export function HomeScreen() {
           </section>
         )}
 
+        <Link to="/challenge" className="quick-link section-gap">
+          <Icon name="flame" size={20} />
+          <span>Челендж — підтягування, віджимання, прес</span>
+          <Icon name="chevronRight" size={18} />
+        </Link>
+
         <Link to={`/nutrition?date=${toISODate(today)}`} className="quick-link section-gap">
           <Icon name="meal" size={20} />
           <span>Відмітити харчування за сьогодні</span>

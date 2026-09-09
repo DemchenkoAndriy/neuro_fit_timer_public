@@ -249,7 +249,10 @@ export function ProfileScreen() {
                 <li key={session.id} className="history-item">
                   <div>
                     <p className="history-item__title">
-                      №{workout?.index ?? '—'} · {workout?.focus ?? 'Тренування'}
+                      {session.challenge
+                        ? session.challenge.exerciseName
+                        : `№${workout?.index ?? '—'} · ${workout?.focus ?? 'Тренування'}`}
+                      {session.challenge && <span className="challenge__badge">челендж</span>}
                     </p>
                     <p className="history-item__meta dim">
                       {new Date(session.startedAt).toLocaleDateString('uk-UA')} ·{' '}
@@ -258,12 +261,20 @@ export function ProfileScreen() {
                       </span>
                     </p>
                     <p className="history-item__meta dim">
-                      {formatDuration(session.totalSec)} · {session.completedSets}/
-                      {session.plannedSets} підходів
+                      {formatDuration(session.totalSec)} ·{' '}
+                      {session.challenge
+                        ? `${session.completedSets} підходів`
+                        : `${session.completedSets}/${session.plannedSets} підходів`}
                     </p>
                   </div>
                   <span className="history-item__volume num">
-                    {Math.round(sessionVolume(session)).toLocaleString('uk-UA')} кг
+                    {session.challenge
+                      ? `${session.logs.reduce(
+                          (sum, log) =>
+                            sum + log.sets.reduce((count, set) => count + set.reps, 0),
+                          0,
+                        )} повт.`
+                      : `${Math.round(sessionVolume(session)).toLocaleString('uk-UA')} кг`}
                   </span>
                 </li>
               );

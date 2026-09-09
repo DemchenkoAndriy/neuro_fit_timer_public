@@ -34,6 +34,8 @@ export function restLengthFor(run: RunState | null, exercise?: Exercise): number
 function newRun(workout: Workout, prepSec: number, now: number): RunState {
   return {
     workoutId: workout.id,
+    mode: 'program',
+    challenge: null,
     startedAt: now,
     exerciseIndex: 0,
     setIndex: 0,

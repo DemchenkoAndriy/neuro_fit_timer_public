@@ -22,10 +22,29 @@ export function programDays(state: AppState): number {
   return state.program.weeks * 7;
 }
 
-/** "2/16" on the home screen. */
+/** "2/16" on the home screen — challenges are counted separately. */
 export function trainingProgress(state: AppState): Progress {
-  const done = state.sessions.filter((session) => session.completed).length;
+  const done = state.sessions.filter(
+    (session) => session.completed && !session.challenge,
+  ).length;
   return progress(done, state.program.workouts.length);
+}
+
+export function challengeSessions(state: AppState): Session[] {
+  return state.sessions.filter((session) => session.challenge);
+}
+
+/** Total reps logged across every challenge. */
+export function challengeReps(state: AppState): number {
+  return challengeSessions(state).reduce(
+    (total, session) =>
+      total +
+      session.logs.reduce(
+        (sum, log) => sum + log.sets.reduce((count, set) => count + set.reps, 0),
+        0,
+      ),
+    0,
+  );
 }
 
 /** "21/140" on the home screen — every meal slot of the whole program. */

@@ -54,6 +54,15 @@ export interface ExerciseLog {
 }
 
 /** A finished (or abandoned) run of a workout. */
+/**
+ * A free-form challenge: one movement, a target number of reps, and as many
+ * sets as it takes. Nothing about the sets is known in advance.
+ */
+export interface ChallengeSpec {
+  exerciseName: string;
+  targetReps: number;
+}
+
 export interface Session {
   id: string;
   workoutId: string;
@@ -72,9 +81,11 @@ export interface Session {
   totalSec: number;
   plannedSets: number;
   completedSets: number;
-  /** True when every planned set was logged. */
+  /** True when every planned set was logged (challenges: the target was hit). */
   completed: boolean;
   logs: ExerciseLog[];
+  /** Set when this session was a challenge rather than a program workout. */
+  challenge?: ChallengeSpec;
 }
 
 export interface Goal {
@@ -132,9 +143,14 @@ export interface Settings {
 
 export type RunPhase = 'prep' | 'warmup' | 'work' | 'rest' | 'cooldown' | 'done';
 
+export type RunMode = 'program' | 'challenge';
+
 /** Live state of a workout in progress — persisted so a reload can resume it. */
 export interface RunState {
   workoutId: string;
+  mode: RunMode;
+  /** The challenge being run, when mode is 'challenge'. */
+  challenge: ChallengeSpec | null;
   startedAt: number;
   exerciseIndex: number;
   setIndex: number;

@@ -702,3 +702,91 @@
 .sound-choice__note {
   font-size: 10px;
 }
+
+/* ---------- challenge ---------- */
+
+.challenge__presets {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.challenge__preset {
+  padding: var(--space-3);
+  border-radius: var(--radius);
+  background: var(--bg-elevated);
+  border: 1px solid transparent;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.challenge__preset--active {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.challenge__name-field {
+  display: block;
+  margin-top: var(--space-4);
+}
+
+.challenge__input {
+  width: 100%;
+  margin-top: var(--space-2);
+  padding: 12px var(--space-3);
+  border-radius: var(--radius);
+  background: var(--bg-elevated);
+  border: 1px solid var(--surface-line);
+  font-size: 15px;
+}
+
+.challenge__target-card {
+  margin-top: var(--space-4);
+  padding: var(--space-4) var(--space-3);
+  border-radius: var(--radius);
+  background: var(--bg-elevated);
+}
+
+.challenge__quick {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.challenge__rules {
+  font-size: 12px;
+  line-height: 1.4;
+  margin: var(--space-4) 0;
+}
+
+.challenge__badge {
+  margin-left: 6px;
+  padding: 2px 7px;
+  border-radius: var(--radius-pill);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 700;
+  vertical-align: middle;
+}
+
+.conflict-card {
+  margin-top: var(--space-5);
+  padding: var(--space-5) var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--bg-elevated);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  text-align: center;
+  color: var(--accent);
+}
+
+.conflict-card p {
+  font-size: 13px;
+}

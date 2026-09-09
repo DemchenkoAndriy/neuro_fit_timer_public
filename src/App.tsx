@@ -5,6 +5,7 @@ import { PlanScreen } from './screens/PlanScreen';
 import { NutritionScreen } from './screens/NutritionScreen';
 import { ProfileScreen } from './screens/ProfileScreen';
 import { WorkoutScreen } from './screens/WorkoutScreen';
+import { ChallengeScreen } from './screens/ChallengeScreen';
 import { RunnerScreen } from './screens/RunnerScreen';
 
 /** Tab shell: scrollable screen plus the persistent bottom navigation. */
@@ -30,6 +31,7 @@ export function App() {
         </Route>
         {/* The runner takes over the whole frame — no tab bar while training. */}
         <Route path="/run/:workoutId" element={<RunnerScreen />} />
+        <Route path="/challenge" element={<ChallengeScreen />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </div>
