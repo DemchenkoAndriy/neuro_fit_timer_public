@@ -2,7 +2,7 @@ import type { AppState, ExerciseLog, NutritionDay, Session, Workout } from '../t
 import { createProgram, MEALS_PER_DAY, plannedSets } from '../data/program';
 import { addDays, daysBetween, fromISODate, isoWeekday, toISODate } from '../utils/date';
 
-export const STATE_VERSION = 5;
+export const STATE_VERSION = 6;
 
 /** Date a program workout is scheduled on. */
 export function workoutDate(programStart: Date, workout: Workout): Date {

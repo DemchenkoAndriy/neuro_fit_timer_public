@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AppHeader } from '../components/AppHeader';
 import { BackButton } from '../components/BackButton';
@@ -10,6 +10,7 @@ import { useAppState, useDispatch } from '../state/store';
 import { challengeSessions } from '../state/selectors';
 import { useChallengeRunner } from '../hooks/useChallengeRunner';
 import { useAudioCue } from '../hooks/useAudioCue';
+import { NUMBER_WORDS, useSpeech } from '../hooks/useSpeech';
 import { useVibrate } from '../hooks/useVibrate';
 import { useWakeLock } from '../hooks/useWakeLock';
 import {
@@ -18,7 +19,7 @@ import {
   CHALLENGE_PRESETS,
 } from '../data/challenges';
 import { formatClock, formatDuration, formatTime } from '../utils/date';
-import type { Session } from '../types';
+import type { ChallengeSpec, Session } from '../types';
 
 export function ChallengeScreen() {
   const state = useAppState();
@@ -27,8 +28,10 @@ export function ChallengeScreen() {
   const {
     view,
     start,
+    finishWarmup,
     beginRest,
     beginSet,
+    addRest,
     setLastReps,
     togglePause,
     finish,
@@ -40,9 +43,40 @@ export function ChallengeScreen() {
   const run = view.run;
   const phase = run?.phase;
 
-  const cue = useAudioCue(state.settings.soundMode !== 'off', state.settings.signalTone);
+  const { soundMode, signalTone } = state.settings;
+  const soundOn = soundMode !== 'off';
+  const cue = useAudioCue(soundOn, signalTone);
+  const speak = useSpeech(soundMode === 'countdown');
   const vibrate = useVibrate(state.settings.vibration);
   useWakeLock(state.settings.keepAwake && Boolean(run) && phase !== 'done');
+
+  // Announce the rest countdown: 10 s / 5 s signals, or a spoken 10 → 0.
+  const announcedRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!run || view.paused || phase !== 'rest') {
+      announcedRef.current = null;
+      return;
+    }
+    const second = Math.ceil(view.restRemainingSec);
+    if (announcedRef.current === second || !soundOn) return;
+    if (second === 0) {
+      announcedRef.current = 0;
+      cue('go');
+      vibrate([80, 60, 80]);
+      return;
+    }
+    if (soundMode === 'beeps' && (second === 10 || second === 5)) {
+      announcedRef.current = second;
+      cue('tick');
+      vibrate(40);
+      return;
+    }
+    if (soundMode === 'countdown' && second <= 10) {
+      announcedRef.current = second;
+      if (!speak(NUMBER_WORDS[second])) cue('tick');
+      vibrate(30);
+    }
+  }, [run, phase, view.paused, view.restRemainingSec, soundMode, soundOn, cue, speak, vibrate]);
 
   // Save as soon as the challenge is closed out.
   useEffect(() => {
@@ -104,13 +138,24 @@ export function ChallengeScreen() {
     );
   }
 
+  const isWarmup = phase === 'warmup';
   const isWork = phase === 'work';
+  const isRest = phase === 'rest';
   const spec = view.spec!;
   const lastSet = view.sets[view.sets.length - 1];
   const remaining = Math.max(0, spec.targetReps - view.totalReps);
+  const restOver = isRest && view.restRemainingSec <= 0;
+
+  const phaseColor = isWarmup
+    ? 'var(--warmup)'
+    : isWork
+      ? 'var(--success)'
+      : restOver
+        ? 'var(--accent)'
+        : 'var(--info)';
 
   return (
-    <div className={`runner runner--${isWork ? 'work' : 'rest'}`}>
+    <div className={`runner runner--${phase}`}>
       <header className="runner__top">
         <button
           type="button"
@@ -122,7 +167,8 @@ export function ChallengeScreen() {
         </button>
         <div className="runner__top-center">
           <p className="runner__top-title">
-            {spec.exerciseName} · підхід {view.sets.length + (isWork ? 1 : 0)}
+            {spec.exerciseName}
+            {isWarmup ? ' · розминка' : ` · підхід ${view.sets.length + (isWork ? 1 : 0)}`}
           </p>
           <p className="runner__clock num">
             <Icon name="clock" size={14} />
@@ -141,23 +187,64 @@ export function ChallengeScreen() {
 
       <div className="runner__ring">
         <div className="runner__ring-side" />
-        <RingTimer ratio={view.ratio} color={isWork ? 'var(--success)' : 'var(--info)'}>
-          <p
-            className="runner__phase"
-            style={{ color: isWork ? 'var(--success)' : 'var(--info)' }}
-          >
-            {view.paused ? 'Пауза' : isWork ? 'Підхід' : 'Відпочинок'}
+        <RingTimer
+          // Rest drains its own countdown; the other phases show the goal.
+          ratio={
+            isRest && view.restTargetSec > 0
+              ? view.restRemainingSec / view.restTargetSec
+              : view.ratio
+          }
+          color={phaseColor}
+        >
+          <p className="runner__phase" style={{ color: phaseColor }}>
+            {view.paused ? 'Пауза' : isWarmup ? 'Розминка' : isWork ? 'Підхід' : 'Відпочинок'}
           </p>
-          <p className="challenge__reps num">
-            {view.totalReps}
-            <span className="challenge__target">/{spec.targetReps}</span>
-          </p>
-          <p className="runner__set dim num">{formatClock(view.phaseElapsedSec)}</p>
+          {isRest ? (
+            <>
+              <p className="runner__time num">
+                {restOver ? `+${formatClock(view.restOverSec)}` : formatClock(view.restRemainingSec)}
+              </p>
+              <p className="runner__set dim num">
+                {view.totalReps}/{spec.targetReps} повт.
+              </p>
+            </>
+          ) : isWarmup ? (
+            <>
+              <p className="runner__time num">{formatClock(view.phaseElapsedSec)}</p>
+              <p className="runner__set dim">без обмеження часу</p>
+            </>
+          ) : (
+            <>
+              <p className="challenge__reps num">
+                {view.totalReps}
+                <span className="challenge__target">/{spec.targetReps}</span>
+              </p>
+              <p className="runner__set dim num">{formatClock(view.phaseElapsedSec)}</p>
+            </>
+          )}
         </RingTimer>
         <div className="runner__ring-side" />
       </div>
 
-      {isWork ? (
+      {isWarmup ? (
+        <>
+          <div className="challenge__credit">
+            <span className="dim">Розігрійся перед першим підходом</span>
+            <span className="dim challenge__credit-hint">
+              {spec.exerciseName} · ціль {spec.targetReps} повторень
+            </span>
+          </div>
+          <div className="runner__actions">
+            <Button variant="accent" block onClick={finishWarmup}>
+              <Icon name="play" size={18} />
+              Розминку завершено
+            </Button>
+            <Button variant="ghost" block onClick={finish}>
+              Завершити челендж
+            </Button>
+          </div>
+        </>
+      ) : isWork ? (
         <>
           <div className="challenge__credit">
             <span className="dim">У залік</span>
@@ -190,6 +277,8 @@ export function ChallengeScreen() {
               {remaining > 0
                 ? `Залишилось ${remaining} до цілі ${spec.targetReps}`
                 : `Ціль ${spec.targetReps} досягнута — можна ще`}
+              {' · '}
+              відпочинок {formatClock(view.restTargetSec)}
             </p>
           </div>
           <div className="runner__actions">
@@ -198,16 +287,24 @@ export function ChallengeScreen() {
               block
               onClick={() => {
                 beginSet();
-                if (state.settings.soundMode !== 'off') cue('go');
+                if (soundOn) cue('go');
                 vibrate([60, 40, 60]);
               }}
             >
               <Icon name="play" size={18} />
               Наступний підхід
             </Button>
-            <Button variant="ghost" block onClick={finish}>
-              Завершити челендж
-            </Button>
+            <div className="runner__actions-row runner__actions-row--three">
+              <Button variant="ghost" onClick={() => addRest(-15)}>
+                −15 с
+              </Button>
+              <Button variant="ghost" onClick={() => addRest(15)}>
+                +15 с
+              </Button>
+              <Button variant="ghost" onClick={finish}>
+                Завершити
+              </Button>
+            </div>
           </div>
         </>
       )}
@@ -216,13 +313,14 @@ export function ChallengeScreen() {
 }
 
 interface SetupProps {
-  onStart: (spec: { exerciseName: string; targetReps: number }) => void;
+  onStart: (spec: ChallengeSpec) => void;
   history: Session[];
 }
 
 function ChallengeSetup({ onStart, history }: SetupProps) {
   const [exerciseName, setExerciseName] = useState(CHALLENGE_PRESETS[0].exerciseName);
   const [targetReps, setTargetReps] = useState(CHALLENGE_PRESETS[0].targetReps);
+  const [restSec, setRestSec] = useState(CHALLENGE_PRESETS[0].restSec);
 
   return (
     <div className="screen">
@@ -245,6 +343,7 @@ function ChallengeSetup({ onStart, history }: SetupProps) {
               onClick={() => {
                 setExerciseName(preset.exerciseName);
                 setTargetReps(preset.targetReps);
+                setRestSec(preset.restSec);
               }}
             >
               {preset.exerciseName}
@@ -287,18 +386,33 @@ function ChallengeSetup({ onStart, history }: SetupProps) {
           </div>
         </div>
 
+        <div className="challenge__target-card">
+          <Stepper
+            label="Відпочинок між підходами"
+            value={restSec}
+            step={15}
+            min={10}
+            max={600}
+            suffix="с"
+            onChange={setRestSec}
+          />
+          <p className="dim challenge__remaining">
+            Таймер відлічує цей час, але наступний підхід завжди стартуєш ти.
+          </p>
+        </div>
+
         <p className="dim challenge__rules">
           Кількість повторень наперед не задається: робиш підхід, тиснеш «Підхід завершено» і
-          вписуєш результат уже під час відпочинку. Відпочинок і завершення — вручну. З часу
-          під навантаженням віднімається {CHALLENGE_LEAD_IN_SEC} с на вхід і{' '}
-          {CHALLENGE_LEAD_OUT_SEC} с на вихід.
+          вписуєш результат уже під час відпочинку. Челендж починається з розминки, а
+          відпочинок і завершення — вручну. З часу під навантаженням віднімається{' '}
+          {CHALLENGE_LEAD_IN_SEC} с на вхід і {CHALLENGE_LEAD_OUT_SEC} с на вихід.
         </p>
 
         <Button
           variant="primary"
           block
           disabled={exerciseName.trim().length === 0}
-          onClick={() => onStart({ exerciseName: exerciseName.trim(), targetReps })}
+          onClick={() => onStart({ exerciseName: exerciseName.trim(), targetReps, restSec })}
         >
           <Icon name="play" size={18} />
           Почати челендж
@@ -392,6 +506,10 @@ function ChallengeSummary({ session, view, onClose }: SummaryProps) {
           />
           <SummaryStat value={formatDuration(view.workSec)} label="під навантаженням" />
           <SummaryStat value={formatDuration(view.restSec)} label="відпочинок" />
+          <SummaryStat value={formatDuration(view.warmupSec)} label="розминка" />
+          {session && (
+            <SummaryStat value={formatDuration(session.totalSec)} label="чистий час" />
+          )}
         </div>
 
         <h3 className="summary-heading">Деталізація</h3>

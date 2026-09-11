@@ -22,6 +22,11 @@ export interface ChallengeView {
   totalElapsedSec: number;
   workSec: number;
   restSec: number;
+  warmupSec: number;
+  /** Rest phase: the target, what is left of it, and any overtime. */
+  restTargetSec: number;
+  restRemainingSec: number;
+  restOverSec: number;
 }
 
 function newRun(spec: ChallengeSpec, now: number): RunState {
@@ -32,8 +37,8 @@ function newRun(spec: ChallengeSpec, now: number): RunState {
     startedAt: now,
     exerciseIndex: 0,
     setIndex: 0,
-    // No count-down anywhere: the athlete decides when a set and a rest end.
-    phase: 'work',
+    // Warm up first; nothing ever auto-advances — the athlete ends each phase.
+    phase: 'warmup',
     phaseStartedAt: now,
     phaseDurationSec: 0,
     pausedAt: null,
@@ -82,10 +87,15 @@ export function useChallengeRunner() {
         totalElapsedSec: 0,
         workSec: 0,
         restSec: 0,
+        warmupSec: 0,
+        restTargetSec: 0,
+        restRemainingSec: 0,
+        restOverSec: 0,
       };
     }
     const reference = run.pausedAt ?? now;
     const phaseElapsedSec = Math.max(0, (reference - run.phaseStartedAt) / 1000);
+    const restTargetSec = run.phase === 'rest' ? run.phaseDurationSec : 0;
     return {
       run,
       conflict,
@@ -101,6 +111,11 @@ export function useChallengeRunner() {
       totalElapsedSec: Math.max(0, (reference - run.startedAt - run.pausedMs) / 1000),
       workSec: run.workSec,
       restSec: run.restSec,
+      warmupSec: run.warmupSec,
+      restTargetSec,
+      restRemainingSec: Math.max(0, restTargetSec - phaseElapsedSec),
+      // Past the target the clock keeps running, it just counts up instead.
+      restOverSec: Math.max(0, phaseElapsedSec - restTargetSec),
     };
   }, [run, conflict, now, sets, totalReps]);
 
@@ -124,6 +139,19 @@ export function useChallengeRunner() {
     [run],
   );
 
+  /** Warm-up is over — first set. */
+  const finishWarmup = useCallback(() => {
+    if (!run || run.phase !== 'warmup') return;
+    const at = Date.now();
+    patch({
+      warmupSec: run.warmupSec + elapsedOf(at),
+      phase: 'work',
+      phaseStartedAt: at,
+      phaseDurationSec: 0,
+      pausedAt: null,
+    });
+  }, [patch, run, elapsedOf]);
+
   /** End the set: log it with the previous rep count, to be corrected in rest. */
   const beginRest = useCallback(() => {
     if (!run || run.phase !== 'work') return;
@@ -142,10 +170,20 @@ export function useChallengeRunner() {
       workSec: run.workSec + credited,
       phase: 'rest',
       phaseStartedAt: at,
-      phaseDurationSec: 0,
+      // The rest timer counts the target down but never starts the next set.
+      phaseDurationSec: run.challenge?.restSec ?? 90,
       pausedAt: null,
     });
   }, [patch, run, sets, elapsedOf]);
+
+  /** Stretch or shorten the rest target while resting. */
+  const addRest = useCallback(
+    (seconds: number) => {
+      if (!run || run.phase !== 'rest') return;
+      patch({ phaseDurationSec: Math.max(10, run.phaseDurationSec + seconds) });
+    },
+    [patch, run],
+  );
 
   /** Rest is over — next set. */
   const beginSet = useCallback(() => {
@@ -228,6 +266,7 @@ export function useChallengeRunner() {
 
     patch({
       restSec: run.phase === 'rest' ? run.restSec + elapsed : run.restSec,
+      warmupSec: run.phase === 'warmup' ? run.warmupSec + elapsed : run.warmupSec,
       phase: 'done',
       phaseStartedAt: at,
       pausedAt: null,
@@ -255,7 +294,7 @@ export function useChallengeRunner() {
       pausedSec: Math.round(run.pausedMs / 1000),
       workSec: Math.round(run.workSec),
       restSec: Math.round(run.restSec),
-      warmupSec: 0,
+      warmupSec: Math.round(run.warmupSec),
       cooldownSec: 0,
       totalSec: Math.round((finishedAt - run.startedAt - run.pausedMs) / 1000),
       // A challenge has no set plan — the target is in reps.
@@ -272,8 +311,10 @@ export function useChallengeRunner() {
   return {
     view,
     start,
+    finishWarmup,
     beginRest,
     beginSet,
+    addRest,
     setLastReps,
     togglePause,
     finish,

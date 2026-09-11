@@ -12,9 +12,11 @@ export function creditedWorkSec(elapsedSec: number): number {
   return Math.max(0, elapsedSec - CHALLENGE_LEAD_IN_SEC - CHALLENGE_LEAD_OUT_SEC);
 }
 
+export const DEFAULT_CHALLENGE_REST_SEC = 90;
+
 export const CHALLENGE_PRESETS: ChallengeSpec[] = [
-  { exerciseName: 'Підтягування', targetReps: 50 },
-  { exerciseName: 'Віджимання', targetReps: 100 },
-  { exerciseName: 'Прес', targetReps: 100 },
-  { exerciseName: 'Присідання', targetReps: 100 },
+  { exerciseName: 'Підтягування', targetReps: 50, restSec: 120 },
+  { exerciseName: 'Віджимання', targetReps: 100, restSec: 90 },
+  { exerciseName: 'Прес', targetReps: 100, restSec: 60 },
+  { exerciseName: 'Присідання', targetReps: 100, restSec: 90 },
 ];

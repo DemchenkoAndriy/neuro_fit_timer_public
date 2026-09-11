@@ -61,6 +61,8 @@ export interface ExerciseLog {
 export interface ChallengeSpec {
   exerciseName: string;
   targetReps: number;
+  /** Rest the athlete aims for between sets; it never auto-advances. */
+  restSec: number;
 }
 
 export interface Session {

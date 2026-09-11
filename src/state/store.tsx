@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from 'react';
 import type { AppState } from '../types';
+import { DEFAULT_CHALLENGE_REST_SEC } from '../data/challenges';
 import { createInitialState, STATE_VERSION } from './initialState';
 import { reducer, type Action } from './reducer';
 
@@ -31,6 +32,12 @@ function migrate(parsed: Record<string, unknown>, base: AppState): AppState {
       warmupSec: session.warmupSec ?? 0,
       cooldownSec: session.cooldownSec ?? 0,
       pausedSec: session.pausedSec ?? 0,
+      challenge: session.challenge
+        ? {
+            ...session.challenge,
+            restSec: session.challenge.restSec ?? DEFAULT_CHALLENGE_REST_SEC,
+          }
+        : undefined,
       logs: (session.logs ?? []).map((log) => ({
         ...log,
         sets: log.sets.map((set) => ({
