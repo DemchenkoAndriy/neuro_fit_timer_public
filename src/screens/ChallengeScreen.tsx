@@ -21,16 +21,6 @@ import {
 import { formatClock, formatDuration, formatTime } from '../utils/date';
 import type { ChallengeSpec, Session } from '../types';
 
-/**
- * Inside the ring there is only so much room, so under a minute the countdown
- * drops to bare seconds — one big digit reads from across the room.
- */
-function shortClock(seconds: number): string {
-  const total = Math.ceil(Math.max(0, seconds));
-  if (total < 60) return `${total}`;
-  return `${Math.floor(total / 60)}:${`${total % 60}`.padStart(2, '0')}`;
-}
-
 export function ChallengeScreen() {
   const state = useAppState();
   const dispatch = useDispatch();
@@ -157,9 +147,12 @@ export function ChallengeScreen() {
   const restOver = isRest && view.restRemainingSec <= 0;
   // The last ten seconds get the loud treatment.
   const restUrgent = isRest && !restOver && view.restRemainingSec <= 10;
-  const restText = restOver
-    ? `+${shortClock(view.restOverSec)}`
-    : shortClock(view.restRemainingSec);
+  // Reps and clock keep the same slots in every phase, so nothing jumps.
+  const clockText = isRest
+    ? restOver
+      ? `+${formatClock(view.restOverSec)}`
+      : formatClock(view.restRemainingSec)
+    : formatClock(view.phaseElapsedSec);
 
   const phaseColor = isWarmup
     ? 'var(--warmup)'
@@ -224,38 +217,18 @@ export function ChallengeScreen() {
           <p className="runner__phase" style={{ color: phaseColor }}>
             {view.paused ? 'Пауза' : isWarmup ? 'Розминка' : isWork ? 'Підхід' : 'Відпочинок'}
           </p>
-          {isRest ? (
-            <>
-              <p
-                className={[
-                  'challenge__countdown num',
-                  restText.length <= 2 ? 'challenge__countdown--short' : '',
-                  restUrgent ? 'challenge__countdown--urgent' : '',
-                ]
-                  .filter(Boolean)
-                  .join(' ')}
-                style={{ color: restOver || restUrgent ? 'var(--accent)' : 'var(--text)' }}
-              >
-                {restText}
-              </p>
-              <p className="runner__set dim num">
-                {restOver ? 'перебір' : `${view.totalReps}/${spec.targetReps} повт.`}
-              </p>
-            </>
-          ) : isWarmup ? (
-            <>
-              <p className="runner__time num">{formatClock(view.phaseElapsedSec)}</p>
-              <p className="runner__set dim">без обмеження часу</p>
-            </>
-          ) : (
-            <>
-              <p className="challenge__reps num">
-                {view.totalReps}
-                <span className="challenge__target">/{spec.targetReps}</span>
-              </p>
-              <p className="runner__set dim num">{formatClock(view.phaseElapsedSec)}</p>
-            </>
-          )}
+          <p className="challenge__line num">
+            {view.totalReps}
+            <span className="challenge__line-of">/{spec.targetReps}</span>
+          </p>
+          <p
+            className={`challenge__line num${
+              restUrgent ? ' challenge__line--urgent' : ''
+            }`}
+            style={{ color: restOver || restUrgent ? 'var(--accent)' : 'var(--text)' }}
+          >
+            {clockText}
+          </p>
         </RingTimer>
         <div className="runner__ring-side" />
       </div>
