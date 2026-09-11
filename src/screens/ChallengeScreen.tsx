@@ -21,6 +21,16 @@ import {
 import { formatClock, formatDuration, formatTime } from '../utils/date';
 import type { ChallengeSpec, Session } from '../types';
 
+/**
+ * Inside the ring there is only so much room, so under a minute the countdown
+ * drops to bare seconds — one big digit reads from across the room.
+ */
+function shortClock(seconds: number): string {
+  const total = Math.ceil(Math.max(0, seconds));
+  if (total < 60) return `${total}`;
+  return `${Math.floor(total / 60)}:${`${total % 60}`.padStart(2, '0')}`;
+}
+
 export function ChallengeScreen() {
   const state = useAppState();
   const dispatch = useDispatch();
@@ -145,17 +155,30 @@ export function ChallengeScreen() {
   const lastSet = view.sets[view.sets.length - 1];
   const remaining = Math.max(0, spec.targetReps - view.totalReps);
   const restOver = isRest && view.restRemainingSec <= 0;
+  // The last ten seconds get the loud treatment.
+  const restUrgent = isRest && !restOver && view.restRemainingSec <= 10;
+  const restText = restOver
+    ? `+${shortClock(view.restOverSec)}`
+    : shortClock(view.restRemainingSec);
 
   const phaseColor = isWarmup
     ? 'var(--warmup)'
     : isWork
       ? 'var(--success)'
-      : restOver
+      : restOver || restUrgent
         ? 'var(--accent)'
         : 'var(--info)';
 
+  const rootClass = [
+    'runner',
+    `runner--${phase}`,
+    restOver || restUrgent ? 'runner--rest-alert' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
   return (
-    <div className={`runner runner--${phase}`}>
+    <div className={rootClass}>
       <header className="runner__top">
         <button
           type="button"
@@ -195,17 +218,28 @@ export function ChallengeScreen() {
               : view.ratio
           }
           color={phaseColor}
+          thickness={isRest ? 9 : 6}
+          className={isRest ? 'ring--rest' : undefined}
         >
           <p className="runner__phase" style={{ color: phaseColor }}>
             {view.paused ? 'Пауза' : isWarmup ? 'Розминка' : isWork ? 'Підхід' : 'Відпочинок'}
           </p>
           {isRest ? (
             <>
-              <p className="runner__time num">
-                {restOver ? `+${formatClock(view.restOverSec)}` : formatClock(view.restRemainingSec)}
+              <p
+                className={[
+                  'challenge__countdown num',
+                  restText.length <= 2 ? 'challenge__countdown--short' : '',
+                  restUrgent ? 'challenge__countdown--urgent' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+                style={{ color: restOver || restUrgent ? 'var(--accent)' : 'var(--text)' }}
+              >
+                {restText}
               </p>
               <p className="runner__set dim num">
-                {view.totalReps}/{spec.targetReps} повт.
+                {restOver ? 'перебір' : `${view.totalReps}/${spec.targetReps} повт.`}
               </p>
             </>
           ) : isWarmup ? (
